@@ -1,0 +1,15 @@
+{
+	"compilerOptions": {
+		"allowJs": true,
+		"checkJs": true,
+		"target": "ES2022",
+		"moduleResolution": "node",
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"outDir": "types",
+		"declarationMap": true,
+		"allowSyntheticDefaultImports": true
+	},
+	"exclude": ["./types/**", "./leafs/**"],
+	"include": ["./src/index.js", "./src/test.js"]
+}
