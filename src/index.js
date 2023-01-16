@@ -5,12 +5,16 @@ import Gitrows from "gitrows";
  */
 
 export class DatabaseManager {
-  /** @type {Record<string, DatabaseWrapper>} */
+	/** @type {Record<string, DatabaseWrapper>} */
 	tables = {};
+	isClosed = false;
+	/** @type {import("./types.js").Gitrows} */
+	GitDB;
+
 	/**
 	 * Creates new DatabaseManager
 	 * @param {object} options
-	 * @param {string} options.repositoryURL - In format https://github.com/leaftail1880/db/blob/ 
+	 * @param {string} options.repositoryURL - In format https://github.com/leaftail1880/db/blob/
 	 * KEEP "/" IN THE END OF LINE!
 	 * @param {string} options.token Token with access to given repo (like "github_pat...")
 	 * @param {string} options.username Keep empty for gitlab. Token's owner username
@@ -18,47 +22,72 @@ export class DatabaseManager {
 	 * of rewriting it by manager.renderer = ...
 	 * @param {string} [options.db_filename="db.json"] Custom name for main db file
 	 * @param {number} [options.minCommitQueneSize] Minimal size for table quene to trigger commit. Default 1.
-	 * @param {number} [options.CommitInterval] Time in MS to commit quene interval. Default is 1000 * 60
+	 * @param {number} [options.commitInterval] Time in MS to commit quene interval. Default is 1000 * 60
 	 */
 	constructor(options) {
-		/** @type {import("./types.js").Gitrows} */
-		this.DB = Gitrows({token: options.token, user: options.username});
-		this.isClosed = false;
-		this.pathToRepo = options.repositoryURL;
+		this.GitDB = new Gitrows({
+			token: options.token,
+			user: options.username,
+		});
 
-    if (options.renderer) this.renderer = options.renderer
+		if (options.renderer) this.renderer = options.renderer;
+		this.options = {
+			pathToRepo: options.repositoryURL,
+			minCommitQueneSize: options.minCommitQueneSize ?? 1,
+			commitIntervalTime: options.commitInterval ?? 1000 * 60,
+		};
 
 		this.Database = this.CreateTable(options.db_filename ?? "db.json");
-		
-		this.minCommitQueneSize = options.minCommitQueneSize ?? 1
-		this.commitInterval.time = options.CommitInterval ?? 1000 * 60
-		this.commitInterval.open()
 	}
-	
-	
-	
+	/**
+	 * Creates a table to work with file on given path
+	 * @param {string} pathToFile - Path to file in repo (like test.json or dir/otherdir/path.json) DONT USE ./
+	 * @returns A table.
+	 */
+	CreateTable(pathToFile) {
+		const table = new DatabaseWrapper(this, pathToFile);
+		this.tables[pathToFile] = table;
+		return table;
+	}
+	/**
+	 * Connects to the database and downloads all data of all tables to their cache
+	 */
+	async Connect() {
+		const bar = this.renderer("tables connected", Object.keys(this.tables).length);
+
+		for (const table of Object.values(this.tables)) {
+			await table._.connect();
+			bar.increment();
+		}
+
+		bar.stop();
+		this.commitInterval.open();
+	}
+
 	commitInterval = {
-	  t: this,
-	  time: 0,
-	  committer() {
-	    if (this.t.isClosed) return
-	    this.t.commitAll()
-	  },
-	  open() {
-	    this.interval = setInterval(this.committer, this.time)
-	  }
-	  close() {
-	    clearInterval(this.interval)
-	  }
-	}
+		/** @private */
+		t: this,
+		committer() {
+			if (this.t.isClosed) return;
+			this.t.commitAll();
+		},
+		open() {
+			this.interval = setInterval(() => this.committer(), this.t.options.commitIntervalTime);
+		},
+		close() {
+			clearInterval(this.interval);
+		},
+	};
 	/**
 	 * Commits all tables if their quene length is more than this.minCommitQueneSize
 	 */
 	async commitAll() {
-	  await Promise.all(Object.values(this.tables).forEach(table => {
-		  if (table.commitWaitQuene.length < this.minCommitQueneSize) return
-	    return table._.commit()
-	  })
+		await Promise.all(
+			Object.values(this.tables).map((table) => {
+				if (table.commitWaitQuene.length < this.options.minCommitQueneSize) return;
+				return table._.commit();
+			})
+		);
 	}
 
 	/**
@@ -101,34 +130,13 @@ export class DatabaseManager {
 			getTotal() {},
 		};
 	}
-
-	/**
-	 * Creates a table to work with file on given path
-	 * @param {string} pathToFile - Path to file in repo (like test.json or dir/otherdir/path.json) DONT USE ./
-	 * @returns A table.
-	 */
-	CreateTable(pathToFile) {
-		const table = new DatabaseWrapper(this, pathToFile);
-		this.tables[pathToFile] = table;
-		return table;
-	}
-	async connect() {
-	  const bar = this.renderer("tables connected", Object.keys(this.tables).length)
-	  
-		for (const table of Object.values(this.tables))	{
-		  await table._.connect();
-		  bar.increment()
-		}
-		
-		bar.stop()
-	}
 }
 
 /**
  * @template [V=any] Value of db. You can specify it to use type-safe db
  */
 class DatabaseWrapper {
-	#Parent;
+	#Manager;
 	#FileURL;
 	/** @type {Record<string, V>} */
 	#Cache = {};
@@ -137,18 +145,25 @@ class DatabaseWrapper {
 	commitWaitQuene = [];
 
 	_ = {
-		db: this,
+		/** @private */
+		t: this,
+
 		/**
 		 * Trying to connect db and shows progress to console
 		 */
 		async connect() {
-			const bar = this.db.#Parent.renderer("getting keys", 15);
+			const bar = this.t.#Manager.renderer("getting keys", 15);
 
 			const int = setInterval(() => {
 				if (bar.getProgress() <= bar.getTotal()) bar.increment();
 			}, 10);
 
-			this.db.#Cache = await this.db.#Parent.DB.get(this.db.#FileURL);
+			this.t.#Cache = await this.t.#Manager.GitDB.get(this.t.#FileURL);
+
+			if (!this.t.#Cache) {
+				await this.createTableFile();
+				this.t.#Cache = {};
+			}
 
 			clearInterval(int);
 
@@ -158,30 +173,36 @@ class DatabaseWrapper {
 		 * Reconects to db
 		 */
 		async reconnect() {
-		  await this.db.#Parent.DB.test(this.db.#FileURL)
-			this.db.#Parent.isClosed = false;
+			await this.t.#Manager.GitDB.test(this.t.#FileURL);
+			this.t.#Manager.isClosed = false;
 		},
 		/**
 		 * Closes db and stop any commiting
 		 */
 		async close() {
-			this.db.#Parent.isClosed = true;
+			this.t.#Manager.isClosed = true;
 		},
 		/**
 		 * Commits all db changes
 		 */
 		async commit() {
-		  await this.db.#Parent.DB.replace(this.#FileURL, this.db.#Cache)
-		  await Promie.all(this.db.commitWaitQuene.forEach(e => e()))
-		  this.db.commitWaitQuene = []
-		}
+			await this.t.#Manager.GitDB.replace(this.t.#FileURL, this.t.#Cache);
+			await Promise.all(this.t.commitWaitQuene.map((e) => e()));
+			this.t.commitWaitQuene = [];
+		},
+		createTableFile() {
+			return this.t.#Manager.GitDB.create(this.t.#FileURL, {});
+		},
+		dropTableFile() {
+			return this.t.#Manager.GitDB.drop(this.t.#FileURL);
+		},
 	};
 	/**
 	 * @param {DatabaseManager} parent
 	 */
 	constructor(parent, pathToFile = "") {
-		this.#Parent = parent;
-		this.#FileURL = this.#Parent.pathToRepo + pathToFile;
+		this.#Manager = parent;
+		this.#FileURL = this.#Manager.options.pathToRepo + pathToFile;
 	}
 	/**
 	 * Wait until commit and then returns given value
@@ -190,7 +211,7 @@ class DatabaseWrapper {
 	 * @returns {Promise<T>}
 	 */
 	waitForCommit(value) {
-		if (this.#Parent.isClosed) throw new Error("DB is closed");
+		if (this.#Manager.isClosed) throw new Error("DB is closed");
 		return new Promise((r) => {
 			this.commitWaitQuene.push(() => r(value));
 		});
@@ -199,7 +220,7 @@ class DatabaseWrapper {
 	 * Checks if timer of dbManager is closed
 	 */
 	get isClosed() {
-		return this.#Parent.isClosed;
+		return this.#Manager.isClosed;
 	}
 	/**
 	 * Getting data from cache
@@ -216,10 +237,10 @@ class DatabaseWrapper {
 	 * @example ```js
 	 * // Get work
 	 * const {data, save} = db.work(key)
-	 * 
+	 *
 	 * // Change values
 	 * data.value = 10
-	 * 
+	 *
 	 * data.obj = { value2: 1 }
 	 *
 	 * // Save without specify key and data
