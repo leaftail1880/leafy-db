@@ -5,22 +5,64 @@ import Gitrows from "gitrows";
  */
 
 export class DatabaseManager {
+  /** @type {Record<string, DatabaseWrapper>} */
 	tables = {};
 	/**
-	 *
-	 * @param {string} pathToRepository - In format https://github.com/leaftail1880/db/blob/ KEEP / IN END OF LINE!
+	 * Creates new DatabaseManager
+	 * @param {object} options
+	 * @param {string} options.repositoryURL - In format https://github.com/leaftail1880/db/blob/ 
+	 * KEEP "/" IN THE END OF LINE!
+	 * @param {string} options.token Token with access to given repo (like "github_pat...")
+	 * @param {string} options.username Keep empty for gitlab. Token's owner username
+	 * @param {DatabaseManager["renderer"]} [options.renderer] Specify renderer in options instead
+	 * of rewriting it by manager.renderer = ...
+	 * @param {string} [options.db_filename="db.json"] Custom name for main db file
+	 * @param {number} [options.minCommitQueneSize] Minimal size for table quene to trigger commit. Default 1.
+	 * @param {number} [options.CommitInterval] Time in MS to commit quene interval. Default is 1000 * 60
 	 */
-	constructor(pathToRepository) {
+	constructor(options) {
 		/** @type {import("./types.js").Gitrows} */
-		this.DB = Gitrows();
+		this.DB = Gitrows({token: options.token, user: options.username});
 		this.isClosed = false;
-		this.pathToRepo = pathToRepository;
+		this.pathToRepo = options.repositoryURL;
 
-		this.Database = new DatabaseWrapper(this);
+    if (options.renderer) this.renderer = options.renderer
+
+		this.Database = this.CreateTable(options.db_filename ?? "db.json");
+		
+		this.minCommitQueneSize = options.minCommitQueneSize ?? 1
+		this.commitInterval.time = options.CommitInterval ?? 1000 * 60
+		this.commitInterval.open()
+	}
+	
+	
+	
+	commitInterval = {
+	  t: this,
+	  time: 0,
+	  committer() {
+	    if (this.t.isClosed) return
+	    this.t.commitAll()
+	  },
+	  open() {
+	    this.interval = setInterval(this.committer, this.time)
+	  }
+	  close() {
+	    clearInterval(this.interval)
+	  }
+	}
+	/**
+	 * Commits all tables if their quene length is more than this.minCommitQueneSize
+	 */
+	async commitAll() {
+	  await Promise.all(Object.values(this.tables).forEach(table => {
+		  if (table.commitWaitQuene.length < this.minCommitQueneSize) return
+	    return table._.commit()
+	  })
 	}
 
 	/**
-	 *
+	 * Creates a renderer to render long proccess in console. By default, renderer is disanled.
 	 * @param {string} postfix
 	 * @param {number} total
 	 * @example ```js
@@ -52,11 +94,8 @@ export class DatabaseManager {
 	 */
 	renderer(postfix, total) {
 		return {
-			/**
-			 *
-			 * @param {number} n
-			 */
-			increment(n = 1) {},
+			/** @param {number} step */
+			increment(step = 1) {},
 			stop() {},
 			getProgress() {},
 			getTotal() {},
@@ -64,9 +103,9 @@ export class DatabaseManager {
 	}
 
 	/**
-	 *
-	 * @param {string} pathToFile Path to file in repo (like test.json or dir/otherdir/path.json) DONT USE ./
-	 * @returns
+	 * Creates a table to work with file on given path
+	 * @param {string} pathToFile - Path to file in repo (like test.json or dir/otherdir/path.json) DONT USE ./
+	 * @returns A table.
 	 */
 	CreateTable(pathToFile) {
 		const table = new DatabaseWrapper(this, pathToFile);
@@ -74,17 +113,24 @@ export class DatabaseManager {
 		return table;
 	}
 	async connect() {
-		for (const db in this.tables) {
-			await this.tables[db].connect();
+	  const bar = this.renderer("tables connected", Object.keys(this.tables).length)
+	  
+		for (const table of Object.values(this.tables))	{
+		  await table._.connect();
+		  bar.increment()
 		}
+		
+		bar.stop()
 	}
-	launchCommitTimer() {}
 }
 
+/**
+ * @template [V=any] Value of db. You can specify it to use type-safe db
+ */
 class DatabaseWrapper {
 	#Parent;
 	#FileURL;
-	/** @type {Record<string, any>} */
+	/** @type {Record<string, V>} */
 	#Cache = {};
 
 	/** @type {Function[]} */
@@ -109,17 +155,26 @@ class DatabaseWrapper {
 			bar.stop();
 		},
 		/**
-		 * Reconects to client
+		 * Reconects to db
 		 */
 		async reconnect() {
+		  await this.db.#Parent.DB.test(this.db.#FileURL)
 			this.db.#Parent.isClosed = false;
 		},
 		/**
-		 * Closes client and quits
+		 * Closes db and stop any commiting
 		 */
 		async close() {
 			this.db.#Parent.isClosed = true;
 		},
+		/**
+		 * Commits all db changes
+		 */
+		async commit() {
+		  await this.db.#Parent.DB.replace(this.#FileURL, this.db.#Cache)
+		  await Promie.all(this.db.commitWaitQuene.forEach(e => e()))
+		  this.db.commitWaitQuene = []
+		}
 	};
 	/**
 	 * @param {DatabaseManager} parent
@@ -129,35 +184,49 @@ class DatabaseWrapper {
 		this.#FileURL = this.#Parent.pathToRepo + pathToFile;
 	}
 	/**
-	 *
+	 * Wait until commit and then returns given value
 	 * @template T
 	 * @param {T} value
 	 * @returns {Promise<T>}
 	 */
 	waitForCommit(value) {
-		if (this.#Parent.isClosed) throw new Error("Custom client is closed");
+		if (this.#Parent.isClosed) throw new Error("DB is closed");
 		return new Promise((r) => {
 			this.commitWaitQuene.push(() => r(value));
 		});
 	}
+	/**
+	 * Checks if timer of dbManager is closed
+	 */
 	get isClosed() {
 		return this.#Parent.isClosed;
 	}
 	/**
-	 * Забирает данные с кэша
+	 * Getting data from cache
 	 * @param {StringLike} key
-	 * @returns {string | boolean | number | any}
+	 * @returns {V}
 	 */
 	get(key) {
 		key = key + "";
 		return this.#Cache[key];
 	}
 	/**
-	 *
+	 * Shorthand for db.get(); and db.set(); pair
 	 * @param {StringLike} key
-	 * @returns
+	 * @example ```js
+	 * // Get work
+	 * const {data, save} = db.work(key)
+	 * 
+	 * // Change values
+	 * data.value = 10
+	 * 
+	 * data.obj = { value2: 1 }
+	 *
+	 * // Save without specify key and data
+	 * save()
+	 * ```
 	 */
-	getWork(key) {
+	work(key) {
 		const data = this.get(key);
 		const T = this;
 
@@ -167,7 +236,7 @@ class DatabaseWrapper {
 		};
 	}
 	/**
-	 * Запрашивает данные с датабазы
+	 * Deleting data from cache and return promise that will resolve on commit
 	 * @param {StringLike} key
 	 * @returns {Promise<boolean>}
 	 */
@@ -176,9 +245,9 @@ class DatabaseWrapper {
 		return this.waitForCommit(value);
 	}
 	/**
-	 * Устанавливает данные в базу данных
+	 * Setting data to cache and return promise that will resolve on commit
 	 * @param {StringLike} key
-	 * @param {string | boolean | Object} value
+	 * @param {V} value
 	 * @returns
 	 */
 	set(key, value) {
@@ -187,6 +256,7 @@ class DatabaseWrapper {
 		return this.waitForCommit(true);
 	}
 	/**
+	 * Checks if cache has key
 	 * @param {StringLike} key
 	 * @returns {boolean}
 	 */
@@ -195,14 +265,14 @@ class DatabaseWrapper {
 		return key in this.#Cache;
 	}
 	/**
-	 * It returns an array of all the keys in the cache
+	 * Returns an array of all keys in the cache
 	 * @returns The keys of the cache object.
 	 */
 	keys() {
 		return Object.keys(this.#Cache);
 	}
 	/**
-	 * It returns a collection of all the keys and values in the cache
+	 * Returns a collection of all keys and values in the cache
 	 * @returns
 	 */
 	collection() {
