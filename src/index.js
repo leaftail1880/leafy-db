@@ -14,15 +14,17 @@ export class DatabaseManager {
 	/**
 	 * Creates new DatabaseManager
 	 * @param {object} options
-	 * @param {string} options.repositoryURL - In format https://github.com/leaftail1880/db/blob/
+	 * @param {string} options.repositoryURL - In format https://github.com/leaftail1880/db/blob/master/
 	 * KEEP "/" IN THE END OF LINE!
 	 * @param {string} options.token Token with access to given repo (like "github_pat...")
 	 * @param {string} options.username Keep empty for gitlab. Token's owner username
 	 * @param {DatabaseManager["renderer"]} [options.renderer] Specify renderer in options instead
 	 * of rewriting it by manager.renderer = ...
 	 * @param {string} [options.db_filename="db.json"] Custom name for main db file
-	 * @param {number} [options.minCommitQueneSize] Minimal size for table quene to trigger commit. Default 1.
-	 * @param {number} [options.commitInterval] Time in MS to commit quene interval. Default is 1000 * 60
+	 * @param {object} [options.commit] Adnvanced AutoCommit settings
+	 * @param {number} [options.commit.minQueneSize] Minimal size for table quene to trigger commit. Default 1.
+	 * @param {number} [options.commit.intervalTime] Time in MS to commit quene interval. Default is 1000 * 60
+	 * @param {boolean} [options.reconnect] Auto-reconnect on fecth errors
 	 */
 	constructor(options) {
 		this.GitDB = new Gitrows({
@@ -33,8 +35,10 @@ export class DatabaseManager {
 		if (options.renderer) this.renderer = options.renderer;
 		this.options = {
 			pathToRepo: options.repositoryURL,
-			minCommitQueneSize: options.minCommitQueneSize ?? 1,
-			commitIntervalTime: options.commitInterval ?? 1000 * 60,
+			commit: {
+			  queneSize: options.commit?.minQueneSize ?? 1,
+			  intervalTime: options.commit?.intervalTime ?? 1000 * 60,
+			}
 		};
 
 		this.Database = this.CreateTable(options.db_filename ?? "db.json");
@@ -56,7 +60,12 @@ export class DatabaseManager {
 		const bar = this.renderer("tables connected", Object.keys(this.tables).length);
 
 		for (const table of Object.values(this.tables)) {
-			await table._.connect();
+		  try {
+			  await table._.connect();
+		  } catch (e) {
+		    bar.stop()
+		    throw e
+		  }
 			bar.increment();
 		}
 
@@ -72,7 +81,7 @@ export class DatabaseManager {
 			this.t.commitAll();
 		},
 		open() {
-			this.interval = setInterval(() => this.committer(), this.t.options.commitIntervalTime);
+			this.interval = setInterval(() => this.committer(), this.t.options.commit.intervalTime);
 		},
 		close() {
 			clearInterval(this.interval);
@@ -84,7 +93,7 @@ export class DatabaseManager {
 	async commitAll() {
 		await Promise.all(
 			Object.values(this.tables).map((table) => {
-				if (table.commitWaitQuene.length < this.options.minCommitQueneSize) return;
+				if (table.commitWaitQuene.length < this.options.commit.queneSize) return;
 				return table._.commit();
 			})
 		);
@@ -158,15 +167,20 @@ class DatabaseWrapper {
 				if (bar.getProgress() <= bar.getTotal()) bar.increment();
 			}, 10);
 
-			this.t.#Cache = await this.t.#Manager.GitDB.get(this.t.#FileURL);
+      try {
+			  this.t.#Cache = await this.t.#Manager.GitDB.get(this.t.#FileURL);
+      } catch (e) {
+        clearInterval(int)
+        throw e
+      }
 
-			if (!this.t.#Cache) {
+      if (!this.t.#Cache) {
+        console.log("No file found at", this.t.#FileURL)
 				await this.createTableFile();
 				this.t.#Cache = {};
 			}
-
-			clearInterval(int);
-
+			
+			clearInterval(int)
 			bar.stop();
 		},
 		/**
@@ -191,7 +205,7 @@ class DatabaseWrapper {
 			this.t.commitWaitQuene = [];
 		},
 		createTableFile() {
-			return this.t.#Manager.GitDB.create(this.t.#FileURL, {});
+			return this.t.#Manager.GitDB.create(this.t.#FileURL);
 		},
 		dropTableFile() {
 			return this.t.#Manager.GitDB.drop(this.t.#FileURL);
