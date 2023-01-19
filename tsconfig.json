@@ -11,5 +11,5 @@
 		"allowSyntheticDefaultImports": true
 	},
 	"exclude": ["./types/**", "./leafs/**"],
-	"include": ["./src/index.js", "./src/test.js"]
+	"include": ["./src/index.js"]
 }

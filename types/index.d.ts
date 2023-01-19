@@ -95,11 +95,10 @@ export class DatabaseManager {
      */
     commitAll(): Promise<void>;
 }
-export type StringLike = string | number | boolean;
 /**
  * @template [V=any] Save value of db. You can specify it to use type-safe db
  */
-declare class DatabaseWrapper<V = any> {
+export class DatabaseWrapper<V = any> {
     /**
      * @param {DatabaseManager} parent
      */
@@ -199,5 +198,5 @@ declare class DatabaseWrapper<V = any> {
     collection(): Record<string, V>;
     #private;
 }
-export {};
+export type StringLike = string | number | boolean;
 //# sourceMappingURL=index.d.ts.map

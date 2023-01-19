@@ -128,7 +128,7 @@ export class DatabaseManager {
 /**
  * @template [V=any] Save value of db. You can specify it to use type-safe db
  */
-class DatabaseWrapper {
+export class DatabaseWrapper {
 	#Manager;
 	#FileURL;
 	/** @type {Record<string, V>} */

@@ -1,16 +1,3 @@
-export interface AbstractDatabase<K extends string | number | symbol, V extends unknown> {
-	get(key: K): Promise<V>;
-	set(key: K, value: V): Promise<any>;
-	del(key: K): Promise<any>;
-	keys(...filters: any): Promise<K[]>;
-	exists?: (key: K) => Promise<number | boolean>;
-	has?: (key: K) => Promise<number | boolean>;
-	isOpen: boolean;
-	ping(): Promise<any>;
-	connect(): Promise<any>;
-	quit(): Promise<any>;
-}
-
 export declare class Gitrows {
 	constructor(options?: any);
 	reset(): this;
