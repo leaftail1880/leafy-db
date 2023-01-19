@@ -23,7 +23,7 @@ export class DatabaseManager {
 	 * @param {string} [options.db_filename="db.json"] Custom name for main db file
 	 * @param {object} [options.commit] Adnvanced AutoCommit settings
 	 * @param {number} [options.commit.minQueneSize] Minimal size for table quene to trigger commit. Default 1.
-	 * @param {number} [options.commit.intervalTime] Time in MS to commit quene interval. Default is 1000 * 60
+	 * @param {number} [options.commit.timerTime] Time in MS to wait until commit. Default is 1000 * 30
 	 * @param {boolean} [options.reconnect] Auto-reconnect on fecth errors
 	 */
 	constructor(options) {
@@ -36,9 +36,9 @@ export class DatabaseManager {
 		this.options = {
 			pathToRepo: options.repositoryURL,
 			commit: {
-			  queneSize: options.commit?.minQueneSize ?? 1,
-			  intervalTime: options.commit?.intervalTime ?? 1000 * 60,
-			}
+				queneSize: options.commit?.minQueneSize ?? 1,
+				timerTime: options.commit?.timerTime ?? 1000 * 30,
+			},
 		};
 
 		this.Database = this.CreateTable(options.db_filename ?? "db.json");
@@ -60,33 +60,17 @@ export class DatabaseManager {
 		const bar = this.renderer("tables connected", Object.keys(this.tables).length);
 
 		for (const table of Object.values(this.tables)) {
-		  try {
-			  await table._.connect();
-		  } catch (e) {
-		    bar.stop()
-		    throw e
-		  }
+			try {
+				await table._.connect();
+			} catch (e) {
+				bar.stop();
+				throw e;
+			}
 			bar.increment();
 		}
 
 		bar.stop();
-		this.commitInterval.open();
 	}
-
-	commitInterval = {
-		/** @private */
-		t: this,
-		committer() {
-			if (this.t.isClosed) return;
-			this.t.commitAll();
-		},
-		open() {
-			this.interval = setInterval(() => this.committer(), this.t.options.commit.intervalTime);
-		},
-		close() {
-			clearInterval(this.interval);
-		},
-	};
 	/**
 	 * Commits all tables if their quene length is more than this.minCommitQueneSize
 	 */
@@ -142,13 +126,21 @@ export class DatabaseManager {
 }
 
 /**
- * @template [V=any] Value of db. You can specify it to use type-safe db
+ * @template [V=any] Save value of db. You can specify it to use type-safe db
  */
 class DatabaseWrapper {
 	#Manager;
 	#FileURL;
 	/** @type {Record<string, V>} */
-	#Cache = {};
+	#сache_store = {};
+
+	get #Cache() {
+		if (this._.isConnected) return this.#сache_store;
+		throw new Error("You need to connect db using Manager.connect()!");
+	}
+	set #Cache(v) {
+		this.#сache_store = v;
+	}
 
 	/** @type {Function[]} */
 	commitWaitQuene = [];
@@ -156,6 +148,8 @@ class DatabaseWrapper {
 	_ = {
 		/** @private */
 		t: this,
+
+		isConnected: false,
 
 		/**
 		 * Trying to connect db and shows progress to console
@@ -167,20 +161,21 @@ class DatabaseWrapper {
 				if (bar.getProgress() <= bar.getTotal()) bar.increment();
 			}, 10);
 
-      try {
-			  this.t.#Cache = await this.t.#Manager.GitDB.get(this.t.#FileURL);
-      } catch (e) {
-        clearInterval(int)
-        throw e
-      }
+			try {
+				this.t.#Cache = await this.t.#Manager.GitDB.get(this.t.#FileURL);
+			} catch (e) {
+				clearInterval(int);
+				throw e;
+			}
 
-      if (!this.t.#Cache) {
-        console.log("No file found at", this.t.#FileURL)
+			if (!this.t.#Cache) {
+				console.log("No file found at", this.t.#FileURL);
 				await this.createTableFile();
 				this.t.#Cache = {};
+				this.isConnected = true;
 			}
-			
-			clearInterval(int)
+
+			clearInterval(int);
 			bar.stop();
 		},
 		/**
@@ -210,6 +205,16 @@ class DatabaseWrapper {
 		dropTableFile() {
 			return this.t.#Manager.GitDB.drop(this.t.#FileURL);
 		},
+		openCommitTimer() {
+			if (this.commitTimer) return;
+
+			this.commitTimer = setInterval(async () => {
+				if (this.t.#Manager.isClosed) return;
+				await this.commit();
+				delete this.commitTimer;
+			}, this.t.#Manager.options.commit.timerTime);
+		},
+		commitTimer: null,
 	};
 	/**
 	 * @param {DatabaseManager} parent
@@ -226,6 +231,7 @@ class DatabaseWrapper {
 	 */
 	waitForCommit(value) {
 		if (this.#Manager.isClosed) throw new Error("DB is closed");
+		this._.openCommitTimer();
 		return new Promise((r) => {
 			this.commitWaitQuene.push(() => r(value));
 		});
