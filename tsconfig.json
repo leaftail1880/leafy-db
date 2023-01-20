@@ -10,6 +10,6 @@
 		"declarationMap": true,
 		"allowSyntheticDefaultImports": true
 	},
-	"exclude": ["./types/**", "./leafs/**"],
+	"exclude": ["./types/**"],
 	"include": ["./src/index.js"]
 }

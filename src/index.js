@@ -57,9 +57,12 @@ export class DatabaseManager {
 	 * Connects to the database and downloads all data of all tables to their cache
 	 */
 	async Connect() {
-		const bar = this.renderer("tables connected", Object.keys(this.tables).length);
+		const tables_to_connect = Object.values(this.tables).filter((e) => !e._.isConnected);
+		if (tables_to_connect.length < 1) return;
 
-		for (const table of Object.values(this.tables)) {
+		const bar = this.renderer("tables connected", tables_to_connect.length);
+
+		for (const table of tables_to_connect) {
 			try {
 				await table._.connect();
 			} catch (e) {
