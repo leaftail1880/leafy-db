@@ -166,12 +166,13 @@ export class DatabaseWrapper {
 
 			try {
 				this.t.#Cache = await this.t.#Manager.GitDB.get(this.t.#FileURL);
+        this.isConnected = true
 			} catch (e) {
 				clearInterval(int);
 				throw e;
 			}
 
-			if (!this.t.#Cache) {
+			if (!this.t.#сache_store) {
 				console.log("No file found at", this.t.#FileURL);
 				await this.createTableFile();
 				this.t.#Cache = {};
