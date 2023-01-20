@@ -158,7 +158,7 @@ export class DatabaseWrapper {
 		 * Trying to connect db and shows progress to console
 		 */
 		async connect() {
-			const bar = this.t.#Manager.renderer("getting keys", 15);
+			const bar = this.t.#Manager.renderer("getting keys", 50);
 
 			const int = setInterval(() => {
 				if (bar.getProgress() <= bar.getTotal()) bar.increment();
@@ -166,7 +166,7 @@ export class DatabaseWrapper {
 
 			try {
 				this.t.#Cache = await this.t.#Manager.GitDB.get(this.t.#FileURL);
-        this.isConnected = true
+				this.isConnected = true;
 			} catch (e) {
 				clearInterval(int);
 				throw e;
@@ -219,6 +219,24 @@ export class DatabaseWrapper {
 			}, this.t.#Manager.options.commit.timerTime);
 		},
 		commitTimer: null,
+		/**
+		 * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweigth
+		 * @param {StringLike} key
+		 * @param {V} value
+		 * @returns {V}
+		 */
+		beforeSet(key, value) {
+			return value;
+		},
+		/**
+		 * This function will trigger until key get from db and can be used to modify data. For example, remove default values to keep db clean and lightweigth
+		 * @param {StringLike} key
+		 * @param {V} value
+		 * @returns {V}
+		 */
+		beforeGet(key, value) {
+			return value;
+		},
 	};
 	/**
 	 * @param {DatabaseManager} parent
@@ -253,7 +271,8 @@ export class DatabaseWrapper {
 	 */
 	get(key) {
 		key = key + "";
-		return this.#Cache[key];
+		const value = this._.beforeGet(key, this.#Cache[key]);
+		return value;
 	}
 	/**
 	 * Shorthand for db.get(); and db.set(); pair
@@ -297,6 +316,7 @@ export class DatabaseWrapper {
 	 */
 	set(key, value) {
 		key = key + "";
+		value = this._.beforeSet(key, value);
 		this.#Cache[key] = value;
 		return this.waitForCommit(true);
 	}

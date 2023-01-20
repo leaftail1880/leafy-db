@@ -129,6 +129,20 @@ export class DatabaseWrapper<V = any> {
         dropTableFile(): Promise<any>;
         openCommitTimer(): void;
         commitTimer: any;
+        /**
+         * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweigth
+         * @param {StringLike} key
+         * @param {V} value
+         * @returns {V}
+         */
+        beforeSet(key: StringLike, value: V): V;
+        /**
+         * This function will trigger until key get from db and can be used to modify data. For example, remove default values to keep db clean and lightweigth
+         * @param {StringLike} key
+         * @param {V} value
+         * @returns {V}
+         */
+        beforeGet(key: StringLike, value: V): V;
     };
     /**
      * Wait until commit and then returns given value
