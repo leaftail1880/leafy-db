@@ -14,7 +14,7 @@ export class DatabaseManager {
 	/**
 	 * Creates new DatabaseManager
 	 * @param {object} options
-	 * @param {string} options.repositoryURL - In format https://github.com/leaftail1880/db/blob/master/
+	 * @param {string} options.repositoryURL - In format https://github.com/<owner>/<repo name>/blob/<branch>/
 	 * KEEP "/" IN THE END OF LINE!
 	 * @param {string} options.token Token with access to given repo (like "github_pat...")
 	 * @param {string} options.username Keep empty for gitlab. Token's owner username
@@ -215,27 +215,39 @@ export class DatabaseWrapper {
 			this.commitTimer = setInterval(async () => {
 				if (this.t.#Manager.isClosed) return;
 				await this.commit();
+				clearInterval(this.commitTimer);
 				delete this.commitTimer;
 			}, this.t.#Manager.options.commit.timerTime);
 		},
 		commitTimer: null,
 		/**
-		 * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweigth
-		 * @param {StringLike} key
-		 * @param {V} value
-		 * @returns {V}
+		 * @template {keyof typeof this["events"]} EventName
+		 * @param {EventName} event
+		 * @param {typeof this["events"][EventName]} callback
 		 */
-		beforeSet(key, value) {
-			return value;
+		on(event, callback) {
+			this.events[event] = callback;
 		},
-		/**
-		 * This function will trigger until key get from db and can be used to modify data. For example, remove default values to keep db clean and lightweigth
-		 * @param {StringLike} key
-		 * @param {V} value
-		 * @returns {V}
-		 */
-		beforeGet(key, value) {
-			return value;
+		/** @private */
+		events: {
+			/**
+			 * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweigth
+			 * @param {StringLike} key
+			 * @param {V} value
+			 * @returns {V}
+			 */
+			beforeSet(key, value) {
+				return value;
+			},
+			/**
+			 * This function will trigger until key get from db and can be used to modify data. For example, add default values to keep db clean and lightweigth
+			 * @param {StringLike} key
+			 * @param {V} value
+			 * @returns {V}
+			 */
+			beforeGet(key, value) {
+				return value;
+			},
 		},
 	};
 	/**
