@@ -91,6 +91,14 @@ export class DatabaseManager {
      */
     Connect(): Promise<void>;
     /**
+     * Reconects to db
+     */
+    Reconnect(): Promise<void>;
+    /**
+     * Closes db and stop any commiting
+     */
+    Close(): void;
+    /**
      * Commits all tables if their quene length is more than this.minCommitQueneSize
      */
     commitAll(): Promise<void>;
@@ -114,20 +122,13 @@ export class DatabaseWrapper<V = any> {
          */
         connect(): Promise<void>;
         /**
-         * Reconects to db
-         */
-        reconnect(): Promise<void>;
-        /**
-         * Closes db and stop any commiting
-         */
-        close(): Promise<void>;
-        /**
          * Commits all db changes
          */
         commit(): Promise<void>;
         createTableFile(): Promise<any>;
         dropTableFile(): Promise<any>;
         openCommitTimer(): void;
+        /** @private */
         commitTimer: any;
         /**
          * @template {keyof typeof this["events"]} EventName

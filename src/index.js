@@ -75,6 +75,19 @@ export class DatabaseManager {
 		bar.stop();
 	}
 	/**
+	 * Reconects to db
+	 */
+	async Reconnect() {
+		await this.GitDB.test(this.options.pathToRepo);
+		this.isClosed = false;
+	}
+	/**
+	 * Closes db and stop any commiting
+	 */
+	Close() {
+		this.isClosed = true;
+	}
+	/**
 	 * Commits all tables if their quene length is more than this.minCommitQueneSize
 	 */
 	async commitAll() {
@@ -183,19 +196,6 @@ export class DatabaseWrapper {
 			bar.stop();
 		},
 		/**
-		 * Reconects to db
-		 */
-		async reconnect() {
-			await this.t.#Manager.GitDB.test(this.t.#FileURL);
-			this.t.#Manager.isClosed = false;
-		},
-		/**
-		 * Closes db and stop any commiting
-		 */
-		async close() {
-			this.t.#Manager.isClosed = true;
-		},
-		/**
 		 * Commits all db changes
 		 */
 		async commit() {
@@ -219,6 +219,7 @@ export class DatabaseWrapper {
 				delete this.commitTimer;
 			}, this.t.#Manager.options.commit.timerTime);
 		},
+		/** @private */
 		commitTimer: null,
 		/**
 		 * @template {keyof typeof this["events"]} EventName
@@ -283,7 +284,7 @@ export class DatabaseWrapper {
 	 */
 	get(key) {
 		key = key + "";
-		const value = this._.beforeGet(key, this.#Cache[key]);
+		const value = this._.events.beforeGet(key, this.#Cache[key]);
 		return value;
 	}
 	/**
@@ -328,7 +329,7 @@ export class DatabaseWrapper {
 	 */
 	set(key, value) {
 		key = key + "";
-		value = this._.beforeSet(key, value);
+		value = this._.events.beforeSet(key, value);
 		this.#Cache[key] = value;
 		return this.waitForCommit(true);
 	}
