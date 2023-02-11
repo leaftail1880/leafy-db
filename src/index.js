@@ -354,7 +354,9 @@ export class DatabaseWrapper {
 	 * @returns
 	 */
 	collection() {
-		return Object.entries(this.#Cache).map(([key, value]) => [key, this._.events.beforeGet(key, value)]);
+		return Object.fromEntries(
+			Object.entries(this.#Cache).map(([key, value]) => [key, this._.events.beforeGet(key, value)])
+		);
 	}
 	/**
 	 * Retursn all values in the cache

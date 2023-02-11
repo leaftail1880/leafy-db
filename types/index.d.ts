@@ -234,7 +234,9 @@ export class DatabaseWrapper<V = any> {
      * Returns a collection of all keys and values in the cache
      * @returns
      */
-    collection(): (string | V)[][];
+    collection(): {
+        [k: string]: V;
+    };
     /**
      * Retursn all values in the cache
      */
