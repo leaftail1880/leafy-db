@@ -354,6 +354,12 @@ export class DatabaseWrapper {
 	 * @returns
 	 */
 	collection() {
-		return this.#Cache;
+		return Object.entries(this.#Cache).map(([key, value]) => [key, this._.events.beforeGet(key, value)]);
+	}
+	/**
+	 * Retursn all values in the cache
+	 */
+	values() {
+		return Object.entries(this.#Cache).map(([key, value]) => this._.events.beforeGet(key, value));
 	}
 }

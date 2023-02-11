@@ -234,7 +234,11 @@ export class DatabaseWrapper<V = any> {
      * Returns a collection of all keys and values in the cache
      * @returns
      */
-    collection(): Record<string, V>;
+    collection(): (string | V)[][];
+    /**
+     * Retursn all values in the cache
+     */
+    values(): V[];
     #private;
 }
 export type StringLike = string | number | boolean;
