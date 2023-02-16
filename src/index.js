@@ -91,12 +91,9 @@ export class DatabaseManager {
 	 * Commits all tables if their quene length is more than this.minCommitQueneSize
 	 */
 	async commitAll() {
-		await Promise.all(
-			Object.values(this.tables).map((table) => {
-				if (table.commitWaitQuene.length < this.options.commit.queneSize) return;
-				return table._.commit();
-			})
-		);
+		for (const table of Object.values(this.tables)) {
+			await table._.commit();
+		}
 	}
 
 	/**
