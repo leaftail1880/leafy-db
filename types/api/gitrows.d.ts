@@ -42,24 +42,15 @@ declare class Gitrows {
      * @param {DBValue | null} obj
      * @param {string | null} sha
      */
-    push(to: FileLoc, obj: DBValue | null, sha: string | null, method?: string): Promise<{
-        code: number;
-        description: any;
-    }>;
+    push(to: FileLoc, obj: DBValue | null, sha: string | null, method?: string): Promise<any>;
     /**
      * @param {FileLoc} path
      */
-    create(path: FileLoc, obj?: {}): Promise<{
-        code: number;
-        description: any;
-    }>;
+    create(path: FileLoc, obj?: {}): Promise<any>;
     /**
      * @param {FileLoc} path
      */
-    drop(path: FileLoc): Promise<{
-        code: number;
-        description: any;
-    }>;
+    drop(path: FileLoc): Promise<any>;
     /**
      * @param {FileLoc} to
      */
@@ -68,13 +59,10 @@ declare class Gitrows {
      * @param {FileLoc} path
      * @param {DBValue} data
      */
-    replace(path: FileLoc, data: DBValue): Promise<{
-        code: number;
-        description: any;
-    }>;
+    replace(path: FileLoc, data: DBValue): Promise<any>;
     /**
      * @param {import("../index.js").Repository} path
      */
-    test(path: import("../index.js").Repository): Promise<never>;
+    test(path: import("../index.js").Repository): Promise<any>;
 }
 //# sourceMappingURL=gitrows.d.ts.map

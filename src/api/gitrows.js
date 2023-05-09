@@ -7,10 +7,15 @@ import descriptions from "./codes.js";
  * @param {number} code
  */
 function Response(code) {
-	return {
-		code,
-		description: descriptions[code] ?? descriptions[428],
-	};
+	if (code < 202) {
+		return descriptions[code] ?? descriptions[428];
+	} else {
+		const error = new Error(
+			`${code}: ${descriptions[code] ?? descriptions[428]}`
+		);
+		error.name = "GitrowsError";
+		throw error;
+	}
 }
 
 /** @param {string} string */
@@ -66,7 +71,7 @@ class Gitrows {
 	 * @returns {Promise<{size: number, sha: string, content: string}>}
 	 */
 	async pull(path) {
-		if (!path.path) Promise.reject(Response(400));
+		if (!path.path) Response(400);
 
 		/** @type {Record<string, string>} */
 		let headers = {};
@@ -86,9 +91,9 @@ class Gitrows {
 			headers,
 		});
 
-		if (!r.ok) Promise.reject(Response(r.status));
+		if (!r.ok) Response(r.status);
 		const json = r.json();
-		if (!json) Promise.reject(Response(r.status));
+		if (!json) Response(r.status);
 
 		// @ts-expect-error
 		return json;
@@ -99,8 +104,8 @@ class Gitrows {
 	 * @param {string | null} sha
 	 */
 	async push(to, obj, sha, method = "PUT") {
-		if (!this._.token) Promise.reject(Response(401));
-		if (!to.path) Promise.reject(Response(400));
+		if (!this._.token) Response(401);
+		if (!to.path) Response(400);
 		const body = {
 			branch: to.branch,
 		};
@@ -128,15 +133,14 @@ class Gitrows {
 				body.committer = this._.author;
 				break;
 			default:
-				Promise.reject(Response(501));
-				break;
+				return Response(501);
 		}
 		const r = await fetch(toApi(to), {
 			method: method,
 			headers: headers,
 			body: JSON.stringify(body),
 		});
-		if (!r.ok) Promise.reject(Response(r.status));
+		if (!r.ok) Response(r.status);
 		return Response(r.status);
 	}
 	/**
@@ -177,8 +181,8 @@ class Gitrows {
 	 * @param {import("../index.js").Repository} path
 	 */
 	async test(path) {
-		if (!path.repo) return Promise.reject(Response(404));
-		if (path.ns !== "github") return Promise.reject(Response(501));
+		if (!path.repo) return Response(404);
+		if (path.ns !== "github") return Response(501);
 
 		const headers = {
 			"Content-Type": "application/json",
@@ -193,11 +197,11 @@ class Gitrows {
 			{ headers }
 		);
 
-		if (!r.ok) {
-			Promise.reject(Response(404));
-		}
+		if (!r.ok) return Response(404);
 	}
 }
 
 export default Gitrows;
+
+
 

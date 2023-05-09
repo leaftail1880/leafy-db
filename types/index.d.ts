@@ -130,14 +130,8 @@ export class DatabaseWrapper<V = any> {
          * Commits all db changes
          */
         commit(): Promise<void>;
-        createTableFile(): Promise<{
-            code: number;
-            description: any;
-        }>;
-        dropTableFile(): Promise<{
-            code: number;
-            description: any;
-        }>;
+        createTableFile(): Promise<any>;
+        dropTableFile(): Promise<any>;
         openCommitTimer(): void;
         /** @private */
         commitTimer: any;
