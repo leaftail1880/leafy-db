@@ -1,21 +1,27 @@
-import Gitrows from "gitrows";
+import Gitrows from "./api/gitrows.js";
 
 /**
  * @typedef {string|number|boolean} StringLike
+ */
+
+/**
+ * @typedef {object} Repository
+ * @prop {string} options.repository.owner - Owner of repository
+ * @prop {string} options.repository.repo - Repository name
+ * @prop {string} options.repository.branch - Repository branch
+ * @prop {'github' | 'gitlab'} ns - A
  */
 
 export class DatabaseManager {
 	/** @type {Record<string, DatabaseWrapper>} */
 	tables = {};
 	isClosed = false;
-	/** @type {import("./types.js").Gitrows} */
 	GitDB;
 
 	/**
 	 * Creates new DatabaseManager
 	 * @param {object} options
-	 * @param {string} options.repositoryURL - In format https://github.com/<owner>/<repo name>/blob/<branch>/
-	 * KEEP "/" IN THE END OF LINE!
+	 * @param {Repository} options.repository
 	 * @param {string} options.token Token with access to given repo (like "github_pat...")
 	 * @param {string} options.username Keep empty for gitlab. Token's owner username
 	 * @param {DatabaseManager["renderer"]} [options.renderer] Specify renderer in options instead
@@ -34,7 +40,7 @@ export class DatabaseManager {
 
 		if (options.renderer) this.renderer = options.renderer;
 		this.options = {
-			pathToRepo: options.repositoryURL,
+			repository: options.repository,
 			commit: {
 				queneSize: options.commit?.minQueneSize ?? 1,
 				timerTime: options.commit?.timerTime ?? 1000 * 30,
@@ -57,7 +63,9 @@ export class DatabaseManager {
 	 * Connects to the database and downloads all data of all tables to their cache
 	 */
 	async Connect() {
-		const tables_to_connect = Object.values(this.tables).filter((e) => !e._.isConnected);
+		const tables_to_connect = Object.values(this.tables).filter(
+			(e) => !e._.isConnected
+		);
 		if (tables_to_connect.length < 1) return;
 
 		const bar = this.renderer("tables connected", tables_to_connect.length);
@@ -78,7 +86,7 @@ export class DatabaseManager {
 	 * Reconects to db
 	 */
 	async Reconnect() {
-		await this.GitDB.test(this.options.pathToRepo);
+		await this.GitDB.test(this.options.repository);
 		this.isClosed = false;
 	}
 	/**
@@ -97,7 +105,7 @@ export class DatabaseManager {
 	}
 
 	/**
-	 * Creates a renderer to render long proccess in console. By default, renderer is disanled.
+	 * Creates a renderer to render long proccess in console. By default, renderer is disabled.
 	 * @param {string} postfix
 	 * @param {number} total
 	 * @example ```js
@@ -143,7 +151,7 @@ export class DatabaseManager {
  */
 export class DatabaseWrapper {
 	#Manager;
-	#FileURL;
+	#FileLocation;
 	/** @type {Record<string, V>} */
 	#сache_store = {};
 
@@ -175,7 +183,7 @@ export class DatabaseWrapper {
 			}, 10);
 
 			try {
-				this.t.#Cache = await this.t.#Manager.GitDB.get(this.t.#FileURL);
+				this.t.#Cache = await this.t.#Manager.GitDB.get(this.t.#FileLocation);
 				this.isConnected = true;
 			} catch (e) {
 				clearInterval(int);
@@ -183,7 +191,10 @@ export class DatabaseWrapper {
 			}
 
 			if (!this.t.#сache_store) {
-				console.log("No file found at", this.t.#FileURL);
+				console.log(
+					"No file found at",
+					JSON.stringify(this.t.#FileLocation, null, 2)
+				);
 				await this.createTableFile();
 				this.t.#Cache = {};
 				this.isConnected = true;
@@ -196,15 +207,15 @@ export class DatabaseWrapper {
 		 * Commits all db changes
 		 */
 		async commit() {
-			await this.t.#Manager.GitDB.replace(this.t.#FileURL, this.t.#Cache);
+			await this.t.#Manager.GitDB.replace(this.t.#FileLocation, this.t.#Cache);
 			await Promise.all(this.t.commitWaitQuene.map((e) => e()));
 			this.t.commitWaitQuene = [];
 		},
 		createTableFile() {
-			return this.t.#Manager.GitDB.create(this.t.#FileURL);
+			return this.t.#Manager.GitDB.create(this.t.#FileLocation);
 		},
 		dropTableFile() {
-			return this.t.#Manager.GitDB.drop(this.t.#FileURL);
+			return this.t.#Manager.GitDB.drop(this.t.#FileLocation);
 		},
 		openCommitTimer() {
 			if (this.commitTimer) return;
@@ -253,7 +264,7 @@ export class DatabaseWrapper {
 	 */
 	constructor(parent, pathToFile = "") {
 		this.#Manager = parent;
-		this.#FileURL = this.#Manager.options.pathToRepo + pathToFile;
+		this.#FileLocation = { ...parent.options.repository, path: pathToFile };
 	}
 	/**
 	 * Wait until commit and then returns given value
@@ -352,13 +363,18 @@ export class DatabaseWrapper {
 	 */
 	collection() {
 		return Object.fromEntries(
-			Object.entries(this.#Cache).map(([key, value]) => [key, this._.events.beforeGet(key, value)])
+			Object.entries(this.#Cache).map(([key, value]) => [
+				key,
+				this._.events.beforeGet(key, value),
+			])
 		);
 	}
 	/**
 	 * Retursn all values in the cache
 	 */
 	values() {
-		return Object.entries(this.#Cache).map(([key, value]) => this._.events.beforeGet(key, value));
+		return Object.entries(this.#Cache).map(([key, value]) =>
+			this._.events.beforeGet(key, value)
+		);
 	}
 }

@@ -1,12 +1,18 @@
 /**
  * @typedef {string|number|boolean} StringLike
  */
+/**
+ * @typedef {object} Repository
+ * @prop {string} options.repository.owner - Owner of repository
+ * @prop {string} options.repository.repo - Repository name
+ * @prop {string} options.repository.branch - Repository branch
+ * @prop {'github' | 'gitlab'} ns - A
+ */
 export class DatabaseManager {
     /**
      * Creates new DatabaseManager
      * @param {object} options
-     * @param {string} options.repositoryURL - In format https://github.com/<owner>/<repo name>/blob/<branch>/
-     * KEEP "/" IN THE END OF LINE!
+     * @param {Repository} options.repository
      * @param {string} options.token Token with access to given repo (like "github_pat...")
      * @param {string} options.username Keep empty for gitlab. Token's owner username
      * @param {DatabaseManager["renderer"]} [options.renderer] Specify renderer in options instead
@@ -18,7 +24,7 @@ export class DatabaseManager {
      * @param {boolean} [options.reconnect] Auto-reconnect on fecth errors
      */
     constructor(options: {
-        repositoryURL: string;
+        repository: Repository;
         token: string;
         username: string;
         renderer?: DatabaseManager["renderer"];
@@ -32,10 +38,9 @@ export class DatabaseManager {
     /** @type {Record<string, DatabaseWrapper>} */
     tables: Record<string, DatabaseWrapper>;
     isClosed: boolean;
-    /** @type {import("./types.js").Gitrows} */
-    GitDB: import("./types.js").Gitrows;
+    GitDB: Gitrows;
     /**
-     * Creates a renderer to render long proccess in console. By default, renderer is disanled.
+     * Creates a renderer to render long proccess in console. By default, renderer is disabled.
      * @param {string} postfix
      * @param {number} total
      * @example ```js
@@ -73,7 +78,7 @@ export class DatabaseManager {
         getTotal(): void;
     };
     options: {
-        pathToRepo: string;
+        repository: Repository;
         commit: {
             queneSize: number;
             timerTime: number;
@@ -125,8 +130,14 @@ export class DatabaseWrapper<V = any> {
          * Commits all db changes
          */
         commit(): Promise<void>;
-        createTableFile(): Promise<any>;
-        dropTableFile(): Promise<any>;
+        createTableFile(): Promise<{
+            code: number;
+            description: any;
+        }>;
+        dropTableFile(): Promise<{
+            code: number;
+            description: any;
+        }>;
         openCommitTimer(): void;
         /** @private */
         commitTimer: any;
@@ -244,4 +255,23 @@ export class DatabaseWrapper<V = any> {
     #private;
 }
 export type StringLike = string | number | boolean;
+export type Repository = {
+    /**
+     * - Owner of repository
+     */
+    owner: string;
+    /**
+     * - Repository name
+     */
+    repo: string;
+    /**
+     * - Repository branch
+     */
+    branch: string;
+    /**
+     * - A
+     */
+    ns: 'github' | 'gitlab';
+};
+import Gitrows from "./api/gitrows.js";
 //# sourceMappingURL=index.d.ts.map

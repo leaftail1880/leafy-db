@@ -10,6 +10,6 @@
 		"declarationMap": true,
 		"allowSyntheticDefaultImports": true
 	},
-	"exclude": ["./types/**"],
+	"exclude": ["./types/**", "./src/api/codes.js"],
 	"include": ["./src/index.js"]
 }
