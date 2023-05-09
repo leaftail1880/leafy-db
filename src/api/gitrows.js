@@ -7,7 +7,7 @@ import descriptions from "./codes.js";
  * @param {number} code
  */
 function Response(code) {
-	if (code < 202) {
+	if (code <= 202) {
 		return descriptions[code] ?? descriptions[428];
 	} else {
 		const error = new Error(
@@ -202,6 +202,7 @@ class Gitrows {
 }
 
 export default Gitrows;
+
 
 
 
