@@ -78,6 +78,7 @@ export class DatabaseManager {
 		}
 
 		bar.stop();
+		this.isClosed = false;
 	}
 	/**
 	 * Reconects to db
@@ -85,12 +86,6 @@ export class DatabaseManager {
 	async Reconnect() {
 		await this.GitDB.test(this.options.repository);
 		this.isClosed = false;
-	}
-	/**
-	 * Closes db and stop any commiting
-	 */
-	Close() {
-		this.isClosed = true;
 	}
 	/**
 	 * Commits all tables if their quene length is more than this.minCommitQueneSize

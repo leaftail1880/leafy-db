@@ -97,10 +97,6 @@ export class DatabaseManager {
      */
     Reconnect(): Promise<void>;
     /**
-     * Closes db and stop any commiting
-     */
-    Close(): void;
-    /**
      * Commits all tables if their quene length is more than this.minCommitQueneSize
      */
     commitAll(): Promise<void>;
