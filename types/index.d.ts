@@ -17,7 +17,6 @@ export class DatabaseManager {
      * @param {string} options.username Keep empty for gitlab. Token's owner username
      * @param {DatabaseManager["renderer"]} [options.renderer] Specify renderer in options instead
      * of rewriting it by manager.renderer = ...
-     * @param {string} [options.db_filename="db.json"] Custom name for main db file
      * @param {object} [options.commit] Adnvanced AutoCommit settings
      * @param {number} [options.commit.minQueneSize] Minimal size for table quene to trigger commit. Default 1.
      * @param {number} [options.commit.timerTime] Time in MS to wait until commit. Default is 1000 * 30
@@ -28,7 +27,6 @@ export class DatabaseManager {
         token: string;
         username: string;
         renderer?: DatabaseManager["renderer"];
-        db_filename?: string;
         commit?: {
             minQueneSize?: number;
             timerTime?: number;
@@ -84,7 +82,6 @@ export class DatabaseManager {
             timerTime: number;
         };
     };
-    Database: DatabaseWrapper<any>;
     /**
      * Creates a table to work with file on given path
      * @param {string} pathToFile - Path to file in repo (like test.json or dir/otherdir/path.json) DONT USE ./
@@ -125,7 +122,7 @@ export class DatabaseWrapper<V = any> {
         /**
          * Trying to connect db and shows progress to console
          */
-        connect(): Promise<void>;
+        connect(): any;
         /**
          * Commits all db changes
          */

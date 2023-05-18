@@ -74,26 +74,27 @@ class Gitrows {
 		if (!path.path) Response(400);
 
 		/** @type {Record<string, string>} */
-		let headers = {};
-
-		if (
-			this._.user !== undefined &&
-			this._.token !== undefined &&
-			path.ns === "github"
-		)
-			headers["Authorization"] =
-				"Basic " + btoa(this._.user + ":" + this._.token);
-
+		const headers = {};
 		let url = toApi(path);
-		if (path.ns === "gitlab") url += "?ref=" + path.branch;
 
-		const r = await fetch(url, {
-			headers,
-		});
+		switch (path.ns) {
+			case "github":
+				if (this._.user !== undefined && this._.token !== undefined) {
+					const auth = "Basic" + btoa(this._.user + ":" + this._.token);
+					headers["Authorization"] = auth;
+				}
+				break;
 
-		if (!r.ok) Response(r.status);
-		const json = r.json();
-		if (!json) Response(r.status);
+			case "gitlab":
+				url += "?ref=" + path.branch;
+		}
+
+		const response = await fetch(url, { headers });
+
+		if (!response.ok) Response(response.status);
+
+		const json = response.json();
+		if (!json) Response(response.status);
 
 		// @ts-expect-error
 		return json;
@@ -202,7 +203,5 @@ class Gitrows {
 }
 
 export default Gitrows;
-
-
 
 
