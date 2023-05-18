@@ -51,9 +51,9 @@ class Gitrows {
 	_ = {
 		message: "GitRows API Post (https://gitrows.com)",
 		author: { name: "GitRows", email: "api@gitrows.com" },
-		/** @type {string} */
+		/** @type {string | null} */
 		token: null,
-		/** @type {string} */
+		/** @type {string | null} */
 		user: null,
 	};
 	/**
@@ -80,8 +80,8 @@ class Gitrows {
 		switch (path.ns) {
 			case "github":
 				if (this._.user !== undefined && this._.token !== undefined) {
-					const auth = "Basic" + btoa(this._.user + ":" + this._.token);
-					headers["Authorization"] = auth;
+					headers["Authorization"] =
+						"Basic " + btoa(this._.user + ":" + this._.token);
 				}
 				break;
 
@@ -203,5 +203,8 @@ class Gitrows {
 }
 
 export default Gitrows;
+
+
+
 
 

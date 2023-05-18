@@ -15,7 +15,7 @@ import Gitrows from "./api/gitrows.js";
 export class DatabaseManager {
 	/** @type {Record<string, DatabaseWrapper>} */
 	tables = {};
-	isClosed = false;
+	isClosed = true;
 	GitDB;
 
 	/**

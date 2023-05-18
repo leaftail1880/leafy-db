@@ -23,10 +23,10 @@ declare class Gitrows {
             name: string;
             email: string;
         };
-        /** @type {string} */
-        token: string;
-        /** @type {string} */
-        user: string;
+        /** @type {string | null} */
+        token: string | null;
+        /** @type {string | null} */
+        user: string | null;
     };
     /**
      * @param {FileLoc} path
