@@ -1,9 +1,10 @@
-export function Github(url: any): {
-    owner: string;
-    repo: string;
-    branch: string;
-    ns: string;
-};
+/**
+ * @param {string} url Url of repository in format:
+ * `https://github.com/<user>/<repo>/blob/<branch>/`
+ * `https://github.com/<user>/<repo>` - Branch defaults to `master`
+ * @returns {Repository}
+ */
+export function Github(url: string): Repository;
 /**
  * @typedef {string|number|boolean} StringLike
  */

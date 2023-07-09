@@ -3,8 +3,8 @@ import Gitrows from "./api/gitrows.js";
 const parser =
   /^\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)\/(?:blob\/(?<branch>[^\/]+)\/)?/gm;
 
-/*
- * @param {string} Url of repository in format:
+/**
+ * @param {string} url Url of repository in format:
  * `https://github.com/<user>/<repo>/blob/<branch>/`
  * `https://github.com/<user>/<repo>` - Branch defaults to `master`
  * @returns {Repository}
