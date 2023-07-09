@@ -1,12 +1,18 @@
+export function Github(url: any): {
+    owner: string;
+    repo: string;
+    branch: string;
+    ns: string;
+};
 /**
  * @typedef {string|number|boolean} StringLike
  */
 /**
  * @typedef {object} Repository
- * @prop {string} options.repository.owner - Owner of repository
- * @prop {string} options.repository.repo - Repository name
- * @prop {string} options.repository.branch - Repository branch
- * @prop {'github' | 'gitlab'} ns - A
+ * @prop {string} owner - Owner of repository
+ * @prop {string} repo - Repository name
+ * @prop {string} branch - Repository branch
+ * @prop {'github' | 'gitlab'} ns - Repository host
  */
 export class DatabaseManager {
     /**
@@ -14,18 +20,18 @@ export class DatabaseManager {
      * @param {object} options
      * @param {Repository} options.repository
      * @param {string} options.token Token with access to given repo (like "github_pat...")
-     * @param {string} options.username Keep empty for gitlab. Token's owner username
+     * @param {string} [options.username] Token's owner username. Defaults to `repository.owner`. Keep empty for gitlab.
      * @param {DatabaseManager["renderer"]} [options.renderer] Specify renderer in options instead
-     * of rewriting it by manager.renderer = ...
+     * of rewriting it by `manager.renderer = ...`
      * @param {object} [options.commit] Adnvanced AutoCommit settings
-     * @param {number} [options.commit.minQueneSize] Minimal size for table quene to trigger commit. Default 1.
+     * @param {number} [options.commit.minQueneSize] Minimal size for table quene to trigger commit. Default is 1.
      * @param {number} [options.commit.timerTime] Time in MS to wait until commit. Default is 1000 * 30
-     * @param {boolean} [options.reconnect] Auto-reconnect on fecth errors
+     * @param {boolean} [options.reconnect] Auto-reconnect on fetch errors
      */
     constructor(options: {
         repository: Repository;
         token: string;
-        username: string;
+        username?: string;
         renderer?: DatabaseManager["renderer"];
         commit?: {
             minQueneSize?: number;
@@ -33,20 +39,19 @@ export class DatabaseManager {
         };
         reconnect?: boolean;
     });
-    /** @type {Record<string, DatabaseWrapper>} */
-    tables: Record<string, DatabaseWrapper>;
-    isClosed: boolean;
+    /** @type {Record<string, DatabaseTable>} */
+    tables: Record<string, DatabaseTable>;
+    closed: boolean;
     GitDB: Gitrows;
     /**
-     * Creates a renderer to render long proccess in console. By default, renderer is disabled.
+     * Creates a renderer to show long processes in console. By default, renderer is disabled.
      * @param {string} postfix
      * @param {number} total
      * @example ```js
      * import { DatabaseManager } from "leafy-db"
      *
-     * // External packages
+     * // External package
      * import { SingleBar } from "cli-progress"
-     * import { clearLines } from "leafy-utils"
      *
      * const manager = new DatabaseManager()
      *
@@ -59,11 +64,7 @@ export class DatabaseManager {
      *   });
      *
      *   bar.start(total, 0);
-     *   const originalStop = bar.stop
-     *   bar.stop = () => {
-     *     originalStop()
-     *     clearLines(-1)
-     *   }
+     *
      *   return bar
      * }
      * ```
@@ -83,28 +84,28 @@ export class DatabaseManager {
         };
     };
     /**
-     * Creates a table to work with file on given path
+     * Creates a DatabaseTable to work with file on given path
      * @param {string} pathToFile - Path to file in repo (like test.json or dir/otherdir/path.json) DONT USE ./
      * @returns A table.
      */
-    CreateTable(pathToFile: string): DatabaseWrapper<any>;
+    table(pathToFile: string): DatabaseTable<any>;
     /**
      * Connects to the database and downloads all data of all tables to their cache
      */
-    Connect(): Promise<void>;
+    connect(): Promise<void>;
     /**
      * Reconects to db
      */
-    Reconnect(): Promise<void>;
+    reconnect(): Promise<void>;
     /**
      * Commits all tables if their quene length is more than this.minCommitQueneSize
      */
     commitAll(): Promise<void>;
 }
 /**
- * @template [V=any] Save value of db. You can specify it to use type-safe db
+ * @template [V=any] Type of db value. You can specify it to use type-safe db
  */
-export class DatabaseWrapper<V = any> {
+export class DatabaseTable<V = any> {
     /**
      * @param {DatabaseManager} parent
      */
@@ -113,18 +114,18 @@ export class DatabaseWrapper<V = any> {
     commitWaitQuene: Function[];
     _: {
         /** @private */
-        t: DatabaseWrapper<V>;
+        t: this;
         isConnected: boolean;
         /**
          * Trying to connect db and shows progress to console
          */
-        connect(): any;
+        connect(): Promise<void>;
         /**
          * Commits all db changes
          */
         commit(): Promise<void>;
         createTableFile(): Promise<any>;
-        dropTableFile(): Promise<any>;
+        deleteTableFile(): Promise<any>;
         openCommitTimer(): void;
         /** @private */
         commitTimer: any;
@@ -135,14 +136,14 @@ export class DatabaseWrapper<V = any> {
          */
         on<EventName extends "beforeSet" | "beforeGet">(event: EventName, callback: {
             /**
-             * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweigth
+             * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweight
              * @param {StringLike} key
              * @param {V} value
              * @returns {V}
              */
             beforeSet(key: StringLike, value: V): V;
             /**
-             * This function will trigger until key get from db and can be used to modify data. For example, add default values to keep db clean and lightweigth
+             * This function will trigger until key get from db and can be used to modify data. For example, add default values to keep db clean and lightweight
              * @param {StringLike} key
              * @param {V} value
              * @returns {V}
@@ -152,14 +153,14 @@ export class DatabaseWrapper<V = any> {
         /** @private */
         events: {
             /**
-             * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweigth
+             * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweight
              * @param {StringLike} key
              * @param {V} value
              * @returns {V}
              */
             beforeSet(key: StringLike, value: V): V;
             /**
-             * This function will trigger until key get from db and can be used to modify data. For example, add default values to keep db clean and lightweigth
+             * This function will trigger until key get from db and can be used to modify data. For example, add default values to keep db clean and lightweight
              * @param {StringLike} key
              * @param {V} value
              * @returns {V}
@@ -177,7 +178,7 @@ export class DatabaseWrapper<V = any> {
     /**
      * Checks if timer of dbManager is closed
      */
-    get isClosed(): boolean;
+    get closed(): boolean;
     /**
      * Getting data from cache
      * @param {StringLike} key
@@ -256,7 +257,7 @@ export type Repository = {
      */
     branch: string;
     /**
-     * - A
+     * - Repository host
      */
     ns: 'github' | 'gitlab';
 };
