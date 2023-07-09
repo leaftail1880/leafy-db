@@ -1,7 +1,7 @@
 import Gitrows from "./api/gitrows.js";
 
 const parser =
-  /^\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)\/(?:blob\/(?<branch>[^\/]+)\/)?/gm;
+  /^\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)\/?(?:blob\/(?<branch>[^\/]+)\/?)?/;
 
 /**
  * @param {string} url Url of repository in format:
