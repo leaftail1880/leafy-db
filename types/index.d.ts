@@ -86,10 +86,11 @@ export class DatabaseManager {
     };
     /**
      * Creates a DatabaseTable to work with file on given path
+     * @template [V=any] - DB table value type.
      * @param {string} pathToFile - Path to file in repo (like test.json or dir/otherdir/path.json) DONT USE ./
-     * @returns A table.
+     * @returns {DatabaseTable<V>} A table.
      */
-    table(pathToFile: string): DatabaseTable<any>;
+    table<V = any>(pathToFile: string): DatabaseTable<V>;
     /**
      * Connects to the database and downloads all data of all tables to their cache
      */

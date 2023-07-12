@@ -74,8 +74,9 @@ export class DatabaseManager {
   }
   /**
    * Creates a DatabaseTable to work with file on given path
+   * @template [V=any] - DB table value type.
    * @param {string} pathToFile - Path to file in repo (like test.json or dir/otherdir/path.json) DONT USE ./
-   * @returns A table.
+   * @returns {DatabaseTable<V>} A table.
    */
   table(pathToFile) {
     const table = new DatabaseTable(this, pathToFile);
