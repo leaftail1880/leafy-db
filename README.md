@@ -1,6 +1,6 @@
 # Leafy-db
 
-Use github as database. Powered by [gitrows](https://gitrows.com)
+Use github as database. Powered by git api. Only one dependency: node-fetch@2.x || 3.x
 
 ## Instalation
 
@@ -21,9 +21,9 @@ npm i leafy-db
 3. Use the following code snippet:
 
 ```ts
-import { DatabaseManager, Github } from "leafy-db";
+import { LeafyManager, Github } from "leafy-db";
 
-const database = DatabaseManager({
+const database = LeafyManager({
   repository: Github(process.env.DB_REPO),
   token: process.env.DB_TOKEN,
 });
@@ -41,4 +41,4 @@ database.connect().then(() => {
 
 ## Gitlab support?
 
-The only one problem with gitlab is that i have no idea how to test if repo exists. If you wamt to use my wrapper with gitlab, tell me, ill fix that. All other things to do are done already!
+The only one problem with gitlab is that i have no idea how to test if repo exists. If you want to use my wrapper with gitlab, tell me, ill fix that. All other things to integrate are done already!

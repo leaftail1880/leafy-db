@@ -6,7 +6,12 @@
  */
 export function Github(url: string): Repository;
 /**
- * @typedef {string|number|boolean} StringLike
+ * Represents error
+ */
+export class LeafyDBError extends Error {
+}
+/**
+ * @typedef {string | number | boolean} StringLike
  */
 /**
  * @typedef {object} Repository
@@ -15,14 +20,14 @@ export function Github(url: string): Repository;
  * @prop {string} branch - Repository branch
  * @prop {'github' | 'gitlab'} ns - Repository host
  */
-export class DatabaseManager {
+export class LeafyDBManager {
     /**
      * Creates new DatabaseManager
      * @param {object} options
      * @param {Repository} options.repository
      * @param {string} options.token Token with access to given repo (like "github_pat...")
      * @param {string} [options.username] Token's owner username. Defaults to `repository.owner`. Keep empty for gitlab.
-     * @param {DatabaseManager["renderer"]} [options.renderer] Specify renderer in options instead
+     * @param {LeafyDBManager["renderer"]} [options.renderer] Specify renderer in options instead
      * of rewriting it by `manager.renderer = ...`
      * @param {object} [options.commit] Adnvanced AutoCommit settings
      * @param {number} [options.commit.minQueneSize] Minimal size for table quene to trigger commit. Default is 1.
@@ -33,28 +38,28 @@ export class DatabaseManager {
         repository: Repository;
         token: string;
         username?: string;
-        renderer?: DatabaseManager["renderer"];
+        renderer?: LeafyDBManager["renderer"];
         commit?: {
             minQueneSize?: number;
             timerTime?: number;
         };
         reconnect?: boolean;
     });
-    /** @type {Record<string, DatabaseTable>} */
-    tables: Record<string, DatabaseTable>;
+    /** @type {Record<string, LeafyDBTable>} */
+    tables: Record<string, LeafyDBTable>;
     closed: boolean;
-    GitDB: Gitrows;
+    GitDB: GitDB;
     /**
      * Creates a renderer to show long processes in console. By default, renderer is disabled.
      * @param {string} postfix
      * @param {number} total
      * @example ```js
-     * import { DatabaseManager } from "leafy-db"
+     * import { LeafyManager } from "leafy-db"
      *
      * // External package
      * import { SingleBar } from "cli-progress"
      *
-     * const manager = new DatabaseManager()
+     * const manager = new LeafyManager()
      *
      * manager.renderer = () => {
      *   const bar = new SingleBar({
@@ -88,9 +93,29 @@ export class DatabaseManager {
      * Creates a DatabaseTable to work with file on given path
      * @template [V=any] - DB table value type.
      * @param {string} pathToFile - Path to file in repo (like test.json or dir/otherdir/path.json) DONT USE ./
-     * @returns {DatabaseTable<V>} A table.
+     * @param {Partial<LeafyDBTable<V>["_"]["events"]>} [events]
+     * @returns {LeafyDBTable<V>} A table.
      */
-    table<V = any>(pathToFile: string): DatabaseTable<V>;
+    table<V = any>(pathToFile: string, events?: Partial<{
+        /**
+         * Calls after table connect
+         */
+        connect(): void;
+        /**
+         * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweight
+         * @param {StringLike} key
+         * @param {V} value
+         * @returns {V}
+         */
+        beforeSet(key: StringLike, value: V): V;
+        /**
+         * This function will trigger until key get from db and can be used to modify data. For example, add default values to keep db clean and lightweight
+         * @param {StringLike} key
+         * @param {V} value
+         * @returns {V}
+         */
+        beforeGet(key: StringLike, value: V): V;
+    }>): LeafyDBTable<V>;
     /**
      * Connects to the database and downloads all data of all tables to their cache
      */
@@ -107,11 +132,13 @@ export class DatabaseManager {
 /**
  * @template [V=any] Type of db value. You can specify it to use type-safe db
  */
-export class DatabaseTable<V = any> {
+export class LeafyDBTable<V = any> {
     /**
-     * @param {DatabaseManager} parent
+     * @param {LeafyDBManager} parent
+     * @param {string} [pathToFile=""]
+     * @param {Partial<LeafyDBTable<V>["_"]["events"]>} [events]
      */
-    constructor(parent: DatabaseManager, pathToFile?: string);
+    constructor(parent: LeafyDBManager, pathToFile?: string, events?: Partial<LeafyDBTable<V>["_"]["events"]>);
     /** @type {Function[]} */
     commitWaitQuene: Function[];
     _: {
@@ -126,17 +153,24 @@ export class DatabaseTable<V = any> {
          * Commits all db changes
          */
         commit(): Promise<void>;
-        createTableFile(): Promise<any>;
-        deleteTableFile(): Promise<any>;
+        createTableFile(): Promise<string>;
+        deleteTableFile(): Promise<string>;
         openCommitTimer(): void;
-        /** @private */
-        commitTimer: any;
+        /**
+         * @private
+         * @type {ReturnType<typeof setInterval>}
+         */
+        commitTimer: ReturnType<typeof setInterval>;
         /**
          * @template {keyof typeof this["events"]} EventName
          * @param {EventName} event
          * @param {typeof this["events"][EventName]} callback
          */
-        on<EventName extends "beforeSet" | "beforeGet">(event: EventName, callback: {
+        on<EventName extends "connect" | "beforeSet" | "beforeGet">(event: EventName, callback: {
+            /**
+             * Calls after table connect
+             */
+            connect(): void;
             /**
              * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweight
              * @param {StringLike} key
@@ -154,6 +188,10 @@ export class DatabaseTable<V = any> {
         }[EventName]): void;
         /** @private */
         events: {
+            /**
+             * Calls after table connect
+             */
+            connect(): void;
             /**
              * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweight
              * @param {StringLike} key
@@ -228,12 +266,10 @@ export class DatabaseTable<V = any> {
     has(key: StringLike): boolean;
     /**
      * Returns an array of all keys in the cache
-     * @returns The keys of the cache object.
      */
     keys(): string[];
     /**
      * Returns a collection of all keys and values in the cache
-     * @returns
      */
     collection(): {
         [k: string]: V;
@@ -263,5 +299,5 @@ export type Repository = {
      */
     ns: 'github' | 'gitlab';
 };
-import Gitrows from "./api/gitrows.js";
+import GitDB from "./api/gitrows.js";
 //# sourceMappingURL=index.d.ts.map

@@ -1,3 +1,6 @@
+/**
+ * @type {Record<number, string>}
+ */
 export default {
 	100: "Continue",
 	101: "Switching Protocols",

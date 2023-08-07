@@ -1,4 +1,4 @@
-export default Gitrows;
+export default GitDB;
 export type FileLoc = import("../index.js").Repository & {
     path: string;
 };
@@ -12,11 +12,11 @@ export type DBValue = Record<string, any>;
 /**
  * Main class to manage requests
  */
-declare class Gitrows {
+declare class GitDB {
     /**
-     * @param {Partial<Gitrows["_"]> & Pick<Gitrows["_"], "token" | "user">} options
+     * @param {Partial<GitDB["_"]> & Pick<GitDB["_"], "token" | "user">} options
      */
-    constructor(options: Partial<Gitrows["_"]> & Pick<Gitrows["_"], "token" | "user">);
+    constructor(options: Partial<GitDB["_"]> & Pick<GitDB["_"], "token" | "user">);
     _: {
         message: string;
         author: {
@@ -42,15 +42,15 @@ declare class Gitrows {
      * @param {DBValue | null} obj
      * @param {string | null} sha
      */
-    push(to: FileLoc, obj: DBValue | null, sha: string | null, method?: string): Promise<any>;
+    push(to: FileLoc, obj: DBValue | null, sha: string | null, method?: string): Promise<string>;
     /**
      * @param {FileLoc} path
      */
-    create(path: FileLoc, obj?: {}): Promise<any>;
+    create(path: FileLoc, obj?: {}): Promise<string>;
     /**
      * @param {FileLoc} path
      */
-    drop(path: FileLoc): Promise<any>;
+    drop(path: FileLoc): Promise<string>;
     /**
      * @param {FileLoc} to
      */
@@ -59,10 +59,10 @@ declare class Gitrows {
      * @param {FileLoc} path
      * @param {DBValue} data
      */
-    replace(path: FileLoc, data: DBValue): Promise<any>;
+    replace(path: FileLoc, data: DBValue): Promise<string>;
     /**
      * @param {import("../index.js").Repository} path
      */
-    test(path: import("../index.js").Repository): Promise<any>;
+    test(path: import("../index.js").Repository): Promise<string>;
 }
 //# sourceMappingURL=gitrows.d.ts.map
