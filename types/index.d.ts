@@ -33,17 +33,25 @@ export class LeafyDBManager {
      * @param {number} [options.commit.minQueneSize] Minimal size for table quene to trigger commit. Default is 1.
      * @param {number} [options.commit.timerTime] Time in MS to wait until commit. Default is 1000 * 30
      * @param {boolean} [options.reconnect] Auto-reconnect on fetch errors
+     * @param {import('undici-types').Dispatcher} [options.dispatcher]
      */
     constructor(options: {
         repository: Repository;
         token: string;
-        username?: string;
-        renderer?: LeafyDBManager["renderer"];
+        username?: string | undefined;
+        renderer?: ((postfix: string, total: number) => {
+            /** @param {number} step */
+            increment(step?: number): void;
+            stop(): void;
+            getProgress(): void;
+            getTotal(): void;
+        }) | undefined;
         commit?: {
-            minQueneSize?: number;
-            timerTime?: number;
-        };
-        reconnect?: boolean;
+            minQueneSize?: number | undefined;
+            timerTime?: number | undefined;
+        } | undefined;
+        reconnect?: boolean | undefined;
+        dispatcher?: import("undici-types").Dispatcher | undefined;
     });
     /** @type {Record<string, LeafyDBTable>} */
     tables: Record<string, LeafyDBTable>;
@@ -93,29 +101,10 @@ export class LeafyDBManager {
      * Creates a DatabaseTable to work with file on given path
      * @template [V=any] - DB table value type.
      * @param {string} pathToFile - Path to file in repo (like test.json or dir/otherdir/path.json) DONT USE ./
-     * @param {Partial<LeafyDBTable<V>["_"]["events"]>} [events]
+     * @param {Partial<Events<V>>} [events]
      * @returns {LeafyDBTable<V>} A table.
      */
-    table<V = any>(pathToFile: string, events?: Partial<{
-        /**
-         * Calls after table connect
-         */
-        connect(): void;
-        /**
-         * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweight
-         * @param {StringLike} key
-         * @param {V} value
-         * @returns {V}
-         */
-        beforeSet(key: StringLike, value: V): V;
-        /**
-         * This function will trigger until key get from db and can be used to modify data. For example, add default values to keep db clean and lightweight
-         * @param {StringLike} key
-         * @param {V} value
-         * @returns {V}
-         */
-        beforeGet(key: StringLike, value: V): V;
-    }>): LeafyDBTable<V>;
+    table<V = any>(pathToFile: string, events?: Partial<Events<V>>): LeafyDBTable<V>;
     /**
      * Connects to the database and downloads all data of all tables to their cache
      */
@@ -130,84 +119,56 @@ export class LeafyDBManager {
     commitAll(): Promise<void>;
 }
 /**
+ * @template V
+ * @typedef {{
+ *   connect(): void;
+ *   beforeSet(key: StringLike, value: V): V;
+ *   beforeGet(key: StringLike, value: V): V;
+ * }} Events
+ */
+/**
  * @template [V=any] Type of db value. You can specify it to use type-safe db
  */
 export class LeafyDBTable<V = any> {
     /**
      * @param {LeafyDBManager} parent
      * @param {string} [pathToFile=""]
-     * @param {Partial<LeafyDBTable<V>["_"]["events"]>} [events]
+     * @param {Partial<Events<V>>} [events]
      */
-    constructor(parent: LeafyDBManager, pathToFile?: string, events?: Partial<LeafyDBTable<V>["_"]["events"]>);
-    /** @type {Function[]} */
-    commitWaitQuene: Function[];
-    _: {
-        /** @private */
-        t: this;
-        isConnected: boolean;
-        /**
-         * Trying to connect db and shows progress to console
-         */
-        connect(): Promise<void>;
-        /**
-         * Commits all db changes
-         */
-        commit(): Promise<void>;
-        createTableFile(): Promise<string>;
-        deleteTableFile(): Promise<string>;
-        openCommitTimer(): void;
-        /**
-         * @private
-         * @type {ReturnType<typeof setInterval>}
-         */
-        commitTimer: ReturnType<typeof setInterval>;
-        /**
-         * @template {keyof typeof this["events"]} EventName
-         * @param {EventName} event
-         * @param {typeof this["events"][EventName]} callback
-         */
-        on<EventName extends "connect" | "beforeSet" | "beforeGet">(event: EventName, callback: {
-            /**
-             * Calls after table connect
-             */
-            connect(): void;
-            /**
-             * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweight
-             * @param {StringLike} key
-             * @param {V} value
-             * @returns {V}
-             */
-            beforeSet(key: StringLike, value: V): V;
-            /**
-             * This function will trigger until key get from db and can be used to modify data. For example, add default values to keep db clean and lightweight
-             * @param {StringLike} key
-             * @param {V} value
-             * @returns {V}
-             */
-            beforeGet(key: StringLike, value: V): V;
-        }[EventName]): void;
-        /** @private */
-        events: {
-            /**
-             * Calls after table connect
-             */
-            connect(): void;
-            /**
-             * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweight
-             * @param {StringLike} key
-             * @param {V} value
-             * @returns {V}
-             */
-            beforeSet(key: StringLike, value: V): V;
-            /**
-             * This function will trigger until key get from db and can be used to modify data. For example, add default values to keep db clean and lightweight
-             * @param {StringLike} key
-             * @param {V} value
-             * @returns {V}
-             */
-            beforeGet(key: StringLike, value: V): V;
-        };
-    };
+    constructor(parent: LeafyDBManager, pathToFile?: string, events?: Partial<Events<V>>);
+    /** @type {(() => void)[]} @protected */
+    protected commitWaitQuene: (() => void)[];
+    isConnected: boolean;
+    /**
+     * Trying to connect db and shows progress to console
+     */
+    connect(): Promise<void>;
+    /**
+     * Commits all db changes
+     */
+    commit(): Promise<void>;
+    createTableFile(): Promise<string>;
+    deleteTableFile(): Promise<string>;
+    /**
+     * @protected
+     */
+    protected openCommitTimer(): void;
+    /**
+     * @protected
+     * @type {ReturnType<typeof setInterval> | undefined}
+     */
+    protected commitTimer: ReturnType<typeof setInterval> | undefined;
+    /**
+     * @template {keyof Events<V>} EventName
+     * @param {EventName} event
+     * @param {Events<V>[EventName]} callback
+     */
+    on<EventName extends keyof Events<V>>(event: EventName, callback: Events<V>[EventName]): void;
+    /**
+     * @type {Events<V>}
+     * @protected
+     */
+    protected events: Events<V>;
     /**
      * Wait until commit and then returns given value
      * @template T
@@ -297,7 +258,12 @@ export type Repository = {
     /**
      * - Repository host
      */
-    ns: 'github' | 'gitlab';
+    ns: "github" | "gitlab";
+};
+export type Events<V> = {
+    connect(): void;
+    beforeSet(key: StringLike, value: V): V;
+    beforeGet(key: StringLike, value: V): V;
 };
 import GitDB from "./api/gitrows.js";
 //# sourceMappingURL=index.d.ts.map

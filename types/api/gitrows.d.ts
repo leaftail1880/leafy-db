@@ -27,6 +27,8 @@ declare class GitDB {
         token: string | null;
         /** @type {string | null} */
         user: string | null;
+        /** @type {import("undici-types").Dispatcher | undefined} */
+        dispatcher: import("undici-types").Dispatcher | undefined;
     };
     /**
      * @param {FileLoc} path
@@ -63,6 +65,6 @@ declare class GitDB {
     /**
      * @param {import("../index.js").Repository} path
      */
-    test(path: import("../index.js").Repository): Promise<string>;
+    test(path: import("../index.js").Repository): Promise<string | undefined>;
 }
 //# sourceMappingURL=gitrows.d.ts.map

@@ -1,28 +1,31 @@
 {
-	"name": "leafy-db",
-	"version": "3.1.0",
-	"description": "Github database wrapper",
-	"main": "src/index.js",
-	"types": "types/index.d.ts",
-	"type": "module",
-	"scripts": {
-		"build": "tsc"
-	},
-	"files": [
-		"src",
-		"types",
-		"tsconfig.json"
-	],
-	"devDependencies": {
-		"@types/node": "^24"
-	},
-	"keywords": [
-		"github",
-		"database",
-		"db"
-	],
-	"repository": "https://github.com/leaftail1880/leafy-db.git",
-	"author": "leaftail1880 <110915645+leaftail1880@users.noreply.github.com>",
-	"license": "MIT",
-	"packageManager": "yarn@4.16.0+sha512.5374c94eb4ef6aa8188fb112f20c1aa6569f248d676c5e576e1fd2a1a4d8d87a96df65d9dfe1c2a0252cbe38bda46cf18d955005b81b43cc7607a5c9d56fd2b6"
+  "name": "leafy-db",
+  "version": "4.0.0",
+  "description": "Github database wrapper",
+  "main": "src/index.js",
+  "types": "types/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "yarn tsc"
+  },
+  "files": [
+    "src",
+    "types",
+    "tsconfig.json"
+  ],
+  "devDependencies": {
+    "@types/node": "^24"
+  },
+  "keywords": [
+    "github",
+    "database",
+    "db"
+  ],
+  "repository": "https://github.com/leaftail1880/leafy-db.git",
+  "author": "leaftail1880 <110915645+leaftail1880@users.noreply.github.com>",
+  "license": "MIT",
+  "packageManager": "yarn@4.16.0+sha512.5374c94eb4ef6aa8188fb112f20c1aa6569f248d676c5e576e1fd2a1a4d8d87a96df65d9dfe1c2a0252cbe38bda46cf18d955005b81b43cc7607a5c9d56fd2b6",
+  "dependencies": {
+    "typescript": "^6.0.3"
+  }
 }

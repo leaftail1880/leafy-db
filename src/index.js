@@ -26,7 +26,8 @@ export function Github(url) {
 	const match = pathname.match(
 		/^\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)\/?(?:blob\/(?<branch>[^\/]+)\/?)?/,
 	);
-	if (!match) throw new LeafyDBError("Invalid url pathname: " + pathname);
+	if (!match?.groups || !match.groups.owner || !match.groups.repo)
+		throw new LeafyDBError("Invalid url pathname: " + pathname);
 
 	const { owner, repo, branch = "master" } = match.groups;
 
@@ -89,7 +90,7 @@ export class LeafyDBManager {
 	 * Creates a DatabaseTable to work with file on given path
 	 * @template [V=any] - DB table value type.
 	 * @param {string} pathToFile - Path to file in repo (like test.json or dir/otherdir/path.json) DONT USE ./
-	 * @param {Partial<LeafyDBTable<V>["_"]["events"]>} [events]
+	 * @param {Partial<Events<V>>} [events]
 	 * @returns {LeafyDBTable<V>} A table.
 	 */
 	table(pathToFile, events) {
@@ -102,7 +103,7 @@ export class LeafyDBManager {
 	 */
 	async connect() {
 		const tables_to_connect = Object.values(this.tables).filter(
-			(e) => !e._.isConnected,
+			(e) => !e.isConnected,
 		);
 		if (tables_to_connect.length < 1) return;
 
@@ -110,7 +111,7 @@ export class LeafyDBManager {
 
 		for (const table of tables_to_connect) {
 			try {
-				await table._.connect();
+				await table.connect();
 			} catch (cause) {
 				bar.stop();
 				throw new LeafyDBError("Failed to connect", { cause });
@@ -133,7 +134,7 @@ export class LeafyDBManager {
 	 */
 	async commitAll() {
 		for (const table of Object.values(this.tables)) {
-			await table._.commit();
+			await table.commit();
 		}
 	}
 
@@ -175,6 +176,15 @@ export class LeafyDBManager {
 }
 
 /**
+ * @template V
+ * @typedef {{
+ *   connect(): void;
+ *   beforeSet(key: StringLike, value: V): V;
+ *   beforeGet(key: StringLike, value: V): V;
+ * }} Events
+ */
+
+/**
  * @template [V=any] Type of db value. You can specify it to use type-safe db
  */
 export class LeafyDBTable {
@@ -186,120 +196,109 @@ export class LeafyDBTable {
 	#сache_store = {};
 
 	get #Cache() {
-		if (this._.isConnected) return this.#сache_store;
+		if (this.isConnected) return this.#сache_store;
 		throw new LeafyDBError("Not connected!");
 	}
 	set #Cache(v) {
 		this.#сache_store = v;
 	}
 
-	/** @type {Function[]} */
+	/** @type {(() => void)[]} @protected */
 	commitWaitQuene = [];
 
-	_ = {
-		/** @private */
-		t: this,
+	isConnected = false;
 
-		isConnected: false,
+	/**
+	 * Trying to connect db and shows progress to console
+	 */
+	async connect() {
+		let error = "";
+		try {
+			this.#Cache = await this.#m.GitDB.get(this.#file);
+			this.isConnected = true;
+		} catch (e) {
+			if (e instanceof Error && e.message.includes("404")) {
+				error = "[leafy-db] No file found at: " + this.#file.path;
+			} else throw e;
+		}
 
-		/**
-		 * Trying to connect db and shows progress to console
-		 */
-		async connect() {
-			let error = "";
-			try {
-				this.t.#Cache = await this.t.#m.GitDB.get(this.t.#file);
-				this.isConnected = true;
-			} catch (e) {
-				if (e instanceof Error && e.message.includes("404")) {
-					error = "[leafy-db] No file found at: " + this.t.#file.path;
-				} else throw e;
-			}
+		if (!this.#сache_store) {
+			console.log(
+				error ?? "[leafy-db] No file content found at: " + this.#file.path,
+			);
+			await this.createTableFile();
+			this.#Cache = {};
+			this.isConnected = true;
+		}
 
-			if (!this.t.#сache_store) {
-				console.log(
-					error ?? "[leafy-db] No file content found at: " + this.t.#file.path,
-				);
-				await this.createTableFile();
-				this.t.#Cache = {};
-				this.isConnected = true;
-			}
+		setImmediate(() => this.events.connect());
+	}
+	/**
+	 * Commits all db changes
+	 */
+	async commit() {
+		await this.#m.GitDB.replace(this.#file, this.#Cache);
+		await Promise.all(this.commitWaitQuene.map((e) => e()));
+		this.commitWaitQuene = [];
+	}
+	createTableFile() {
+		return this.#m.GitDB.create(this.#file);
+	}
+	deleteTableFile() {
+		return this.#m.GitDB.drop(this.#file);
+	}
+	/**
+	 * @protected
+	 */
+	openCommitTimer() {
+		if (this.commitTimer) return;
 
-			setImmediate(() => this.events.connect());
-		},
-		/**
-		 * Commits all db changes
-		 */
-		async commit() {
-			await this.t.#m.GitDB.replace(this.t.#file, this.t.#Cache);
-			await Promise.all(this.t.commitWaitQuene.map((e) => e()));
-			this.t.commitWaitQuene = [];
-		},
-		createTableFile() {
-			return this.t.#m.GitDB.create(this.t.#file);
-		},
-		deleteTableFile() {
-			return this.t.#m.GitDB.drop(this.t.#file);
-		},
-		openCommitTimer() {
-			if (this.commitTimer) return;
+		this.commitTimer = setInterval(async () => {
+			if (this.#m.closed) return;
+			await this.commit();
+			clearInterval(this.commitTimer);
+			delete this.commitTimer;
+		}, this.#m.options.commit.timerTime);
+	}
+	/**
+	 * @protected
+	 * @type {ReturnType<typeof setInterval> | undefined}
+	 */
+	commitTimer = undefined;
+	/**
+	 * @template {keyof Events<V>} EventName
+	 * @param {EventName} event
+	 * @param {Events<V>[EventName]} callback
+	 */
+	on(event, callback) {
+		this.events[event] = callback;
+	}
 
-			this.commitTimer = setInterval(async () => {
-				if (this.t.#m.closed) return;
-				await this.commit();
-				clearInterval(this.commitTimer);
-				delete this.commitTimer;
-			}, this.t.#m.options.commit.timerTime);
+	/**
+	 * @type {Events<V>}
+	 * @protected
+	 */
+	events = {
+		connect() {},
+		beforeSet(key, value) {
+			return value;
 		},
-		/**
-		 * @private
-		 * @type {ReturnType<typeof setInterval> | undefined}
-		 */
-		commitTimer: undefined,
-		/**
-		 * @template {keyof typeof this["events"]} EventName
-		 * @param {EventName} event
-		 * @param {typeof this["events"][EventName]} callback
-		 */
-		on(event, callback) {
-			this.events[event] = callback;
-		},
-		/** @private */
-		events: {
-			/**
-			 * Calls after table connect
-			 */
-			connect() {},
-			/**
-			 * This function will trigger until key set to db and can be used to modify data. For example, remove default values to keep db clean and lightweight
-			 * @param {StringLike} key
-			 * @param {V} value
-			 * @returns {V}
-			 */
-			beforeSet(key, value) {
-				return value;
-			},
-			/**
-			 * This function will trigger until key get from db and can be used to modify data. For example, add default values to keep db clean and lightweight
-			 * @param {StringLike} key
-			 * @param {V} value
-			 * @returns {V}
-			 */
-			beforeGet(key, value) {
-				return value;
-			},
+		beforeGet(key, value) {
+			return value;
 		},
 	};
+
 	/**
 	 * @param {LeafyDBManager} parent
 	 * @param {string} [pathToFile=""]
-	 * @param {Partial<LeafyDBTable<V>["_"]["events"]>} [events]
+	 * @param {Partial<Events<V>>} [events]
 	 */
 	constructor(parent, pathToFile = "", events) {
 		this.#m = parent;
-		if (events) Object.assign(this._.events, events);
+		if (events) Object.assign(this.events, events);
 		this.#file = { ...parent.options.repository, path: pathToFile };
 	}
+
 	/**
 	 * Wait until commit and then returns given value
 	 * @template T
@@ -308,7 +307,7 @@ export class LeafyDBTable {
 	 */
 	waitForCommit(value) {
 		if (this.#m.closed) throw new LeafyDBError("DB is closed");
-		this._.openCommitTimer();
+		this.openCommitTimer();
 		return new Promise((r) => {
 			this.commitWaitQuene.push(() => r(value));
 		});
@@ -326,7 +325,7 @@ export class LeafyDBTable {
 	 */
 	get(key) {
 		key = key + "";
-		const value = this._.events.beforeGet(key, this.#Cache[key]);
+		const value = this.events.beforeGet(key, this.#Cache[key]);
 		return value;
 	}
 	/**
@@ -371,7 +370,7 @@ export class LeafyDBTable {
 	 */
 	set(key, value) {
 		key = key + "";
-		value = this._.events.beforeSet(key, value);
+		value = this.events.beforeSet(key, value);
 		this.#Cache[key] = value;
 		return this.waitForCommit(true);
 	}
@@ -397,7 +396,7 @@ export class LeafyDBTable {
 		return Object.fromEntries(
 			Object.entries(this.#Cache).map(([key, value]) => [
 				key,
-				this._.events.beforeGet(key, value),
+				this.events.beforeGet(key, value),
 			]),
 		);
 	}
@@ -406,7 +405,7 @@ export class LeafyDBTable {
 	 */
 	values() {
 		return Object.entries(this.#Cache).map(([key, value]) =>
-			this._.events.beforeGet(key, value),
+			this.events.beforeGet(key, value),
 		);
 	}
 }
