@@ -27,8 +27,8 @@ declare class GitDB {
         token: string | null;
         /** @type {string | null} */
         user: string | null;
-        /** @type {import("undici-types").Dispatcher | undefined} */
-        dispatcher: import("undici-types").Dispatcher | undefined;
+        /** @type {import("undici").Dispatcher | undefined} */
+        dispatcher: import("undici").Dispatcher | undefined;
     };
     /**
      * @param {FileLoc} path

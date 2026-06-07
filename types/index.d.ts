@@ -33,7 +33,7 @@ export class LeafyDBManager {
      * @param {number} [options.commit.minQueneSize] Minimal size for table quene to trigger commit. Default is 1.
      * @param {number} [options.commit.timerTime] Time in MS to wait until commit. Default is 1000 * 30
      * @param {boolean} [options.reconnect] Auto-reconnect on fetch errors
-     * @param {import('undici-types').Dispatcher} [options.dispatcher]
+     * @param {import('undici').Dispatcher} [options.dispatcher]
      */
     constructor(options: {
         repository: Repository;
@@ -51,7 +51,7 @@ export class LeafyDBManager {
             timerTime?: number | undefined;
         } | undefined;
         reconnect?: boolean | undefined;
-        dispatcher?: import("undici-types").Dispatcher | undefined;
+        dispatcher?: import("undici").Dispatcher | undefined;
     });
     /** @type {Record<string, LeafyDBTable>} */
     tables: Record<string, LeafyDBTable>;

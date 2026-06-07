@@ -1,6 +1,7 @@
 // @ts-check
 
 import descriptions from "./codes.js";
+import {fetch} from 'undici'
 
 /**
  * @param {number} code
@@ -65,7 +66,7 @@ class GitDB {
 		token: null,
 		/** @type {string | null} */
 		user: null,
-		/** @type {import("undici-types").Dispatcher | undefined} */
+		/** @type {import("undici").Dispatcher | undefined} */
 		dispatcher: undefined,
 	};
 	/**
