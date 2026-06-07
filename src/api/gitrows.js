@@ -1,6 +1,5 @@
 // @ts-check
 
-import fetch from "node-fetch";
 import descriptions from "./codes.js";
 
 /**
@@ -11,7 +10,7 @@ function Response(code) {
 		return descriptions[code] ?? descriptions[428];
 	} else {
 		const error = new Error(
-			`${code}: ${descriptions[code] ?? descriptions[428]}`
+			`${code}: ${descriptions[code] ?? descriptions[428]}`,
 		);
 		error.name = "GitDBError";
 		throw error;
@@ -66,6 +65,8 @@ class GitDB {
 		token: null,
 		/** @type {string | null} */
 		user: null,
+		/** @type {import("undici-types").Dispatcher | undefined} */
+		dispatcher: undefined,
 	};
 	/**
 	 * @param {Partial<GitDB["_"]> & Pick<GitDB["_"], "token" | "user">} options
@@ -93,7 +94,10 @@ class GitDB {
 				url += "?ref=" + path.branch;
 		}
 
-		const response = await fetch(url, { headers });
+		const response = await fetch(url, {
+			headers,
+			dispatcher: this._.dispatcher,
+		});
 		if (!response.ok) Response(response.status);
 
 		const json = response.json();
@@ -110,9 +114,9 @@ class GitDB {
 	async push(to, obj, sha, method = "PUT") {
 		if (!this._.token) Response(401);
 		if (!to.path) Response(400);
-    /**
-     * @type {Record<string, any>}
-     */
+		/**
+		 * @type {Record<string, any>}
+		 */
 		const body = {
 			branch: to.branch,
 		};
@@ -122,9 +126,9 @@ class GitDB {
 
 		if (sha) body.sha = sha;
 
-    /**
-     * @type {Record<string, string>}
-     */
+		/**
+		 * @type {Record<string, string>}
+		 */
 		const headers = {
 			"Content-Type": "application/json",
 		};
@@ -148,6 +152,7 @@ class GitDB {
 			method: method,
 			headers: headers,
 			body: JSON.stringify(body),
+			dispatcher: this._.dispatcher,
 		});
 		if (!r.ok) Response(r.status);
 		return Response(r.status);
@@ -166,7 +171,7 @@ class GitDB {
 			path,
 			null,
 			path.ns === "github" ? (await this.pull(path)).sha : null,
-			"DELETE"
+			"DELETE",
 		);
 	}
 	/**
@@ -200,7 +205,7 @@ class GitDB {
 
 		const r = await fetch(
 			"https://api.github.com/repos/" + path.owner + "/" + path.repo,
-			{ headers }
+			{ headers, dispatcher: this._.dispatcher },
 		);
 
 		if (!r.ok) Response(404);

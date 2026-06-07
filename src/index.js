@@ -24,7 +24,7 @@ export function Github(url) {
 		throw new LeafyDBError("Invalid url host: " + host);
 
 	const match = pathname.match(
-		/^\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)\/?(?:blob\/(?<branch>[^\/]+)\/?)?/
+		/^\/(?<owner>[^\/]+)\/(?<repo>[^\/]+)\/?(?:blob\/(?<branch>[^\/]+)\/?)?/,
 	);
 	if (!match) throw new LeafyDBError("Invalid url pathname: " + pathname);
 
@@ -63,6 +63,7 @@ export class LeafyDBManager {
 	 * @param {number} [options.commit.minQueneSize] Minimal size for table quene to trigger commit. Default is 1.
 	 * @param {number} [options.commit.timerTime] Time in MS to wait until commit. Default is 1000 * 30
 	 * @param {boolean} [options.reconnect] Auto-reconnect on fetch errors
+	 * @param {import('undici-types').Dispatcher} [options.dispatcher]
 	 */
 	constructor(options) {
 		if (!options.username && options.repository.ns === "github") {
@@ -71,7 +72,8 @@ export class LeafyDBManager {
 
 		this.GitDB = new GitDB({
 			token: options.token,
-			user: options.username,
+			user: options.username ?? null,
+			dispatcher: options.dispatcher,
 		});
 
 		if (options.renderer) this.renderer = options.renderer;
@@ -100,7 +102,7 @@ export class LeafyDBManager {
 	 */
 	async connect() {
 		const tables_to_connect = Object.values(this.tables).filter(
-			(e) => !e._.isConnected
+			(e) => !e._.isConnected,
 		);
 		if (tables_to_connect.length < 1) return;
 
@@ -181,7 +183,7 @@ export class LeafyDBTable {
 	/** Table file */
 	#file;
 	/** @type {Record<string, V>} */
-	#сache_store;
+	#сache_store = {};
 
 	get #Cache() {
 		if (this._.isConnected) return this.#сache_store;
@@ -209,14 +211,14 @@ export class LeafyDBTable {
 				this.t.#Cache = await this.t.#m.GitDB.get(this.t.#file);
 				this.isConnected = true;
 			} catch (e) {
-				if (e.message.includes("404")) {
+				if (e instanceof Error && e.message.includes("404")) {
 					error = "[leafy-db] No file found at: " + this.t.#file.path;
 				} else throw e;
 			}
 
 			if (!this.t.#сache_store) {
 				console.log(
-					error ?? "[leafy-db] No file content found at: " + this.t.#file.path
+					error ?? "[leafy-db] No file content found at: " + this.t.#file.path,
 				);
 				await this.createTableFile();
 				this.t.#Cache = {};
@@ -251,9 +253,9 @@ export class LeafyDBTable {
 		},
 		/**
 		 * @private
-		 * @type {ReturnType<typeof setInterval>}
+		 * @type {ReturnType<typeof setInterval> | undefined}
 		 */
-		commitTimer: null,
+		commitTimer: undefined,
 		/**
 		 * @template {keyof typeof this["events"]} EventName
 		 * @param {EventName} event
@@ -396,7 +398,7 @@ export class LeafyDBTable {
 			Object.entries(this.#Cache).map(([key, value]) => [
 				key,
 				this._.events.beforeGet(key, value),
-			])
+			]),
 		);
 	}
 	/**
@@ -404,7 +406,7 @@ export class LeafyDBTable {
 	 */
 	values() {
 		return Object.entries(this.#Cache).map(([key, value]) =>
-			this._.events.beforeGet(key, value)
+			this._.events.beforeGet(key, value),
 		);
 	}
 }

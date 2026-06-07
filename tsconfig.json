@@ -3,13 +3,17 @@
 		"allowJs": true,
 		"checkJs": true,
 		"target": "ES2022",
-		"moduleResolution": "node",
+		"moduleResolution": "nodenext",
+		"module": "nodenext",
+		"lib": ["ES2022"],
 		"declaration": true,
 		"emitDeclarationOnly": true,
 		"noImplicitAny": true,
 		"outDir": "types",
+		"rootDir": ".",
 		"declarationMap": true,
-		"allowSyntheticDefaultImports": true
+		"allowSyntheticDefaultImports": true,
+		"types": ["node"]
 	},
 	"exclude": ["./types/**", "./src/api/codes.js"],
 	"include": ["./src/index.js"]
